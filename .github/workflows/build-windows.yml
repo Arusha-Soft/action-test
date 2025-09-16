@@ -145,6 +145,9 @@ jobs:
       with:
         files: build/Windows/${{ env.ARTIFACT_NAME }}.7z.*
         caption: "Windows build: ${{ env.ARTIFACT_NAME }}"
+        bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
+        chat_thread_id: ${{ secrets.TELEGRAM_CHAT_THREAD_ID }}
 
     - name: Calculate duration
       if: always()

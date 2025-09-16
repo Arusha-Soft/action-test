@@ -8,6 +8,18 @@ inputs:
     description: 'File caption'
     required: false
     default: ''
+  bot_token:
+    description: 'Telegram Bot Token'
+    required: true
+    default: ''
+  chat_id:
+    description: 'Telegram Chat ID'
+    required: true
+    default: ''
+  chat_thread_id:
+    description: 'Telegram Chat Thread ID (for groups)'
+    required: true
+    default: ''
 
 runs:
   using: composite
@@ -15,7 +27,7 @@ runs:
     - name: Check Telegram secrets
       id: check_telegram
       run: |
-        if [ -n "${{ secrets.TELEGRAM_BOT_TOKEN }}" ] && [ -n "${{ secrets.TELEGRAM_CHAT_ID }}" ]; then
+        if [ -n "${{ inputs.bot_token }}" ] && [ -n "${{ inputs.chat_id }}" ]; then
           echo "has_telegram=true" >> $GITHUB_OUTPUT
         else
           echo "has_telegram=false" >> $GITHUB_OUTPUT
@@ -28,10 +40,10 @@ runs:
         for file in ${{ inputs.files }}; do
           if [ -f "$file" ]; then
             echo "Uploading $file to Telegram..."
-            curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendDocument" \
+            curl -s -X POST "https://api.telegram.org/bot${{ inputs.bot_token }}/sendDocument" \
               -H "Content-Type: multipart/form-data" \
-              -F "chat_id=${{ secrets.TELEGRAM_CHAT_ID }}" \
-              -F "message_thread_id=${{ secrets.TELEGRAM_THREAD_ID }}" \
+              -F "chat_id=${{ inputs.chat_id }}" \
+              -F "message_thread_id=${{ inputs.chat_thread_id }}" \
               -F "document=@$file" \
               -F "caption=${{ inputs.caption }}"
           fi
