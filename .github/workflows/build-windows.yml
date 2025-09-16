@@ -167,6 +167,9 @@ jobs:
         artifact_name: ${{ env.ARTIFACT_NAME }}
         platform: Windows
         flavor: ${{ env.FLAVOR }}
+        bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
+        chat_thread_id: ${{ secrets.TELEGRAM_CHAT_THREAD_ID }}
 
   on-failure:
     runs-on: self-hosted

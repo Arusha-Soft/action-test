@@ -22,6 +22,18 @@ inputs:
   flavor:
     description: 'Build flavor (dev/release)'
     required: true
+  bot_token:
+    description: 'Telegram Bot Token'
+    required: true
+    default: ''
+  chat_id: 
+    description: 'Telegram Chat ID'
+    required: true
+    default: ''
+  chat_thread_id:
+    description: 'Telegram Chat Thread ID (for groups)'
+    required: true
+    default: ''
 
 runs:
   using: composite
@@ -29,7 +41,7 @@ runs:
     - name: Check Telegram secrets
       id: check_telegram
       run: |
-        if [ -n "${{ secrets.TELEGRAM_BOT_TOKEN }}" ] && [ -n "${{ secrets.TELEGRAM_CHAT_ID }}" ]; then
+        if [ -n "${{ inputs.bot_token }}" ] && [ -n "${{ inputs.chat_id }}" ]; then
           echo "has_telegram=true" >> $GITHUB_OUTPUT
         else
           echo "has_telegram=false" >> $GITHUB_OUTPUT
@@ -66,11 +78,11 @@ runs:
           \n*Run:* [View](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
         fi
 
-        curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+        curl -s -X POST "https://api.telegram.org/bot${{ inputs.bot_token }}/sendMessage" \
           -H "Content-Type: application/json" \
           -d "{
-            \"chat_id\": \"${{ secrets.TELEGRAM_CHAT_ID }}\",
-            \"message_thread_id\": \"${{ secrets.TELEGRAM_THREAD_ID }}\",
+            \"chat_id\": \"${{ inputs.chat_id }}\",
+            \"message_thread_id\": \"${{ inputs.chat_thread_id }}\",
             \"text\": \"$MESSAGE\",
             \"parse_mode\": \"MarkdownV2\",
             \"disable_web_page_preview\": true
