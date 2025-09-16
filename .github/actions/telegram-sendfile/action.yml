@@ -1,0 +1,39 @@
+name: 'Telegram File Upload'
+description: 'Upload files to Telegram'
+inputs:
+  files:
+    description: 'File pattern to upload'
+    required: true
+  caption:
+    description: 'File caption'
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Check Telegram secrets
+      id: check_telegram
+      run: |
+        if [ -n "${{ secrets.TELEGRAM_BOT_TOKEN }}" ] && [ -n "${{ secrets.TELEGRAM_CHAT_ID }}" ]; then
+          echo "has_telegram=true" >> $GITHUB_OUTPUT
+        else
+          echo "has_telegram=false" >> $GITHUB_OUTPUT
+        fi
+      shell: bash
+
+    - name: Upload files to Telegram
+      if: steps.check_telegram.outputs.has_telegram == 'true'
+      run: |
+        for file in ${{ inputs.files }}; do
+          if [ -f "$file" ]; then
+            echo "Uploading $file to Telegram..."
+            curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendDocument" \
+              -H "Content-Type: multipart/form-data" \
+              -F "chat_id=${{ secrets.TELEGRAM_CHAT_ID }}" \
+              -F "message_thread_id=${{ secrets.TELEGRAM_THREAD_ID }}" \
+              -F "document=@$file" \
+              -F "caption=${{ inputs.caption }}"
+          fi
+        done
+      shell: bash

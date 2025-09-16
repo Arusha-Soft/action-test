@@ -1,0 +1,24 @@
+name: 'Parse Project Settings'
+description: 'Parse Unity project settings for name and version'
+
+runs:
+  using: composite
+  steps:
+    - name: Parse ProjectSettings.asset
+      id: parse_settings
+      run: |
+        # Extract productName and bundleVersion from ProjectSettings.asset
+        PRODUCT_NAME=$(grep -A1 'productName:' ProjectSettings/ProjectSettings.asset | tail -1 | sed 's/.*: //' | tr -d ' ')
+        BUNDLE_VERSION=$(grep -A1 'bundleVersion:' ProjectSettings/ProjectSettings.asset | tail -1 | sed 's/.*: //' | tr -d ' ')
+        
+        echo "product_name=$PRODUCT_NAME" >> $GITHUB_OUTPUT
+        echo "bundle_version=$BUNDLE_VERSION" >> $GITHUB_OUTPUT
+        echo "base_filename=${PRODUCT_NAME}_${BUNDLE_VERSION}" >> $GITHUB_OUTPUT
+      shell: bash
+
+    - name: Parse Unity version
+      id: parse_unity_version
+      run: |
+        UNITY_VERSION=$(grep 'm_EditorVersion:' ProjectSettings/ProjectVersion.txt | sed 's/.*: //' | tr -d ' ')
+        echo "unity_version=$UNITY_VERSION" >> $GITHUB_OUTPUT
+      shell: bash

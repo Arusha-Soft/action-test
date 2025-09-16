@@ -1,0 +1,78 @@
+name: 'Telegram Notification'
+description: 'Send Telegram notification for build status'
+inputs:
+  status:
+    description: 'Status type (start/end)'
+    required: true
+  result:
+    description: 'Build result (success/failure/cancelled)'
+    required: false
+    default: ''
+  duration:
+    description: 'Build duration'
+    required: false
+    default: ''
+  artifact_name:
+    description: 'Artifact name'
+    required: false
+    default: ''
+  platform:
+    description: 'Build platform'
+    required: true
+  flavor:
+    description: 'Build flavor (dev/release)'
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Check Telegram secrets
+      id: check_telegram
+      run: |
+        if [ -n "${{ secrets.TELEGRAM_BOT_TOKEN }}" ] && [ -n "${{ secrets.TELEGRAM_CHAT_ID }}" ]; then
+          echo "has_telegram=true" >> $GITHUB_OUTPUT
+        else
+          echo "has_telegram=false" >> $GITHUB_OUTPUT
+        fi
+      shell: bash
+
+    - name: Send Telegram notification
+      if: steps.check_telegram.outputs.has_telegram == 'true'
+      run: |
+        MESSAGE=""
+        if [ "${{ inputs.status }}" = "start" ]; then
+          MESSAGE="🚀 *Build Started* 
+          \n*Platform:* ${{ inputs.platform }}
+          \n*Flavor:* ${{ inputs.flavor }}
+          \n*Repo:* ${{ github.repository }}
+          \n*Branch:* ${{ github.ref_name }}
+          \n*Commit:* ${GITHUB_SHA:0:7}
+          \n*By:* ${{ github.actor }}
+          \n*Run:* [View](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+        else
+          RESULT_EMOJI=""
+          case "${{ inputs.result }}" in
+            "success") RESULT_EMOJI="✅" ;;
+            "failure") RESULT_EMOJI="❌" ;;
+            "cancelled") RESULT_EMOJI="⏹️" ;;
+            *) RESULT_EMOJI="ℹ️" ;;
+          esac
+          
+          MESSAGE="$RESULT_EMOJI *Build ${{ inputs.result }}* 
+          \n*Platform:* ${{ inputs.platform }}
+          \n*Flavor:* ${{ inputs.flavor }}
+          \n*Duration:* ${{ inputs.duration }}
+          \n*Artifact:* ${{ inputs.artifact_name }}
+          \n*Run:* [View](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+        fi
+
+        curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+          -H "Content-Type: application/json" \
+          -d "{
+            \"chat_id\": \"${{ secrets.TELEGRAM_CHAT_ID }}\",
+            \"message_thread_id\": \"${{ secrets.TELEGRAM_THREAD_ID }}\",
+            \"text\": \"$MESSAGE\",
+            \"parse_mode\": \"MarkdownV2\",
+            \"disable_web_page_preview\": true
+          }"
+      shell: bash

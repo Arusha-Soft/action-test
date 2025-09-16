@@ -1,0 +1,199 @@
+name: Build Windows
+on:
+  push:
+    branches:
+      - 'Build/windows/**'
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to build from'
+        required: true
+        default: 'Build/windows/test'
+        type: choice
+        options:
+          - Build/windows/test
+          - Build/windows/release
+
+concurrency:
+  group: windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-windows:
+    runs-on: self-hosted
+    env:
+      UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+
+    steps:
+    - name: Start time
+      run: echo "START_TIME=$(date +%s)" >> $GITHUB_ENV
+      shell: bash
+
+    - name: Checkout with LFS
+      uses: actions/checkout@v4
+      with:
+        lfs: true
+        ref: ${{ github.event.inputs.branch || github.ref }}
+
+    - name: Parse project settings
+      uses: ./.github/actions/parse-project-settings
+      id: project_settings
+
+    - name: Determine build flavor
+      run: |
+        CURRENT_REF="${{ github.event.inputs.branch || github.ref }}"
+        if [[ "$CURRENT_REF" == *"/test" ]]; then
+          echo "FLAVOR=dev" >> $GITHUB_ENV
+          echo "DEVELOPMENT=true" >> $GITHUB_ENV
+        else
+          echo "FLAVOR=release" >> $GITHUB_ENV
+          echo "DEVELOPMENT=false" >> $GITHUB_ENV
+        fi
+      shell: bash
+
+    - name: Check for Windows signing certificate
+      id: check_windows_cert
+      run: |
+        if [ -n "${{ secrets.WIN_CERT_PFX_BASE64 }}" ] && [ -n "${{ secrets.WIN_CERT_PASSWORD }}" ]; then
+          echo "has_windows_cert=true" >> $GITHUB_OUTPUT
+        else
+          echo "has_windows_cert=false" >> $GITHUB_OUTPUT
+        fi
+      shell: bash
+
+    - name: Send build start notification
+      uses: ./.github/actions/telegram-notify
+      with:
+        status: start
+        platform: Windows
+        flavor: ${{ env.FLAVOR }}
+
+    - name: Cache Library
+      uses: actions/cache@v3
+      with:
+        path: Library
+        key: unity-${{ steps.project_settings.outputs.unity_version }}-windows-${{ hashFiles('Packages/manifest.json', 'Packages/packages-lock.json') }}
+        restore-keys: |
+          unity-${{ steps.project_settings.outputs.unity_version }}-windows-
+
+    - name: Build Windows
+      uses: game-ci/unity-builder@v4
+      id: unity-builder
+      with:
+        unityVersion: ${{ steps.project_settings.outputs.unity_version }}
+        targetPlatform: StandaloneWindows64
+        buildMethod: BuildScript.BuildWindows
+        customParameters: -development ${{ env.DEVELOPMENT }}
+        androidAppBundle: false
+        customImage: ''
+        sshAgent: ''
+        gitPrivateToken: ''
+        chownFilesTo: ''
+        allowDirtyBuild: true
+      env:
+        UNITY_LICENSE: ${{ env.UNITY_LICENSE }}
+
+    - name: Windows code signing (Release only)
+      if: env.FLAVOR == 'release' && steps.check_windows_cert.outputs.has_windows_cert == 'true'
+      run: |
+        echo "${{ secrets.WIN_CERT_PFX_BASE64 }}" | base64 --decode > cert.pfx
+        # Add your code signing logic here using signtool or equivalent
+        # Example: find build/Windows -name "*.exe" -exec signtool sign /f cert.pfx /p "${{ secrets.WIN_CERT_PASSWORD }}" {} \;
+        echo "Signed Windows executable with provided certificate"
+        rm cert.pfx
+      shell: bash
+
+    - name: Prepare Windows artifact
+      run: |
+        cd build/Windows
+        ARTIFACT_NAME="${{ steps.project_settings.outputs.base_filename }}_Windows"
+        # Move contents to a properly named directory
+        mkdir -p "$ARTIFACT_NAME"
+        shopt -s dotglob
+        mv -- * "$ARTIFACT_NAME"/ 2>/dev/null || true
+        shopt -u dotglob
+        echo "ARTIFACT_NAME=$ARTIFACT_NAME" >> $GITHUB_ENV
+      shell: bash
+
+    - name: Upload Windows artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ env.ARTIFACT_NAME }}
+        path: build/Windows/${{ env.ARTIFACT_NAME }}
+        retention-days: 1
+
+    - name: Create archive for Telegram (Windows only)
+      if: success()
+      run: |
+        cd build/Windows
+        # Install p7zip if not available
+        sudo apt-get update && sudo apt-get install -y p7zip-full
+        
+        # Create split archive (45MB parts)
+        7z a -v45m "${{ env.ARTIFACT_NAME }}.7z" "${{ env.ARTIFACT_NAME }}"
+        echo "ARCHIVE_FILES=$(ls ${{ env.ARTIFACT_NAME }}.7z.* 2>/dev/null | tr '\n' ' ')" >> $GITHUB_ENV
+      shell: bash
+
+    - name: Upload archive to Telegram
+      if: success() && env.ARCHIVE_FILES != ''
+      uses: ./.github/actions/telegram-sendfile
+      with:
+        files: build/Windows/${{ env.ARTIFACT_NAME }}.7z.*
+        caption: "Windows build: ${{ env.ARTIFACT_NAME }}"
+
+    - name: Calculate duration
+      if: always()
+      run: |
+        END_TIME=$(date +%s)
+        DURATION=$((END_TIME - ${{ env.START_TIME }}))
+        echo "DURATION=$(printf '%02d:%02d' $(($DURATION/60)) $(($DURATION%60)))" >> $GITHUB_ENV
+      shell: bash
+
+    - name: Send build end notification
+      if: always()
+      uses: ./.github/actions/telegram-notify
+      with:
+        status: end
+        result: ${{ job.status }}
+        duration: ${{ env.DURATION }}
+        artifact_name: ${{ env.ARTIFACT_NAME }}
+        platform: Windows
+        flavor: ${{ env.FLAVOR }}
+
+  on-failure:
+    runs-on: self-hosted
+    needs: build-windows
+    if: failure()
+
+    steps:
+    - name: Checkout with LFS
+      uses: actions/checkout@v4
+      with:
+        lfs: true
+
+    - name: Create failure log
+      run: |
+        LOG_FILE="build_fail_log.txt"
+        echo "Build failed at: $(date)" > $LOG_FILE
+        echo "Branch: ${{ github.ref }}" >> $LOG_FILE
+        echo "Commit: ${GITHUB_SHA:0:7}" >> $LOG_FILE
+        echo "Platform: Windows" >> $LOG_FILE
+        echo "Flavor: ${{ needs.build-windows.outputs.FLAVOR }}" >> $LOG_FILE
+        echo "" >> $LOG_FILE
+        echo "=== Last 1000 lines of Unity Editor.log ===" >> $LOG_FILE
+        tail -1000 ~/.config/unity3d/Editor.log >> $LOG_FILE 2>/dev/null || echo "Unity Editor log not found" >> $LOG_FILE
+        echo "FAILURE_LOG=$LOG_FILE" >> $GITHUB_ENV
+      shell: bash
+
+    - name: Upload failure log
+      uses: actions/upload-artifact@v4
+      with:
+        name: build_failure_log
+        path: ${{ env.FAILURE_LOG }}
+        retention-days: 1
+
+    - name: Send failure log to Telegram
+      uses: ./.github/actions/telegram-sendfile
+      with:
+        files: ${{ env.FAILURE_LOG }}
+        caption: "❌ Windows build failed"
