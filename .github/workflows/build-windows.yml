@@ -34,7 +34,12 @@ jobs:
       with:
         lfs: true
         ref: ${{ github.event.inputs.branch || github.ref }}
-
+    - name: Debug local actions
+      run: |
+        echo "Branch = ${{ github.event.inputs.branch || github.ref }}"
+        echo "Workspace = $GITHUB_WORKSPACE"
+        ls -R .github/actions || true
+        
     - name: Parse project settings
       uses: ./.github/actions/parse-project-settings
       id: project_settings
