@@ -52,20 +52,31 @@ runs:
       if: steps.check_telegram.outputs.has_telegram == 'true'
       run: |
 
-        escape_md() {
-          echo "$1" | sed 's/[][\()~`>#+=|{}.!*_\\-]/\\&/g
-                    }
+        escape_markdown() {
+          echo "$1" | sed -e 's/\([_[\]()~`>#\+\-=|{}.!]\)/\\\\\1/g'
+         }
+
+        PLATFORM=$(escape_markdown "${{ inputs.platform }}")
+        FLAVOR=$(escape_markdown "${{ inputs.flavor }}")
+        REPO=$(escape_markdown "${{ github.repository }}")
+        BRANCH=$(escape_markdown "${{ github.ref_name }}")
+        COMMIT=$(escape_markdown "${GITHUB_SHA:0:7}")
+        ACTOR=$(escape_markdown "${{ github.actor }}")
+        DURATION=$(escape_markdown "${{ inputs.duration }}")
+        ARTIFACT=$(escape_markdown "${{ inputs.artifact_name }}")
+        SERVER_URL=$(escape_markdown "${{ github.server_url }}")
+        RUN_ID=$(escape_markdown "${{ github.run_id }}")
 
         MESSAGE=""
         if [ "${{ inputs.status }}" = "start" ]; then
           MESSAGE="🚀 *Build Started* 
-          \n*Platform:* $(escape_md "${{ inputs.platform }}")
-          \n*Flavor:* $(escape_md "${{ inputs.flavor }}")
-          \n*Repo:* $(escape_md "${{ github.repository }}")
-          \n*Branch:* $(escape_md "${{ github.ref_name }}")
-          \n*Commit:* $(escape_md "${GITHUB_SHA:0:7}")
-          \n*By:* $(escape_md "${{ github.actor }}")
-          \n*Run:* [View](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+          \\n*Platform:* $PLATFORM
+          \\n*Flavor:* $FLAVOR
+          \\n*Repo:* $REPO
+          \\n*Branch:* $BRANCH
+          \\n*Commit:* $COMMIT
+          \\n*By:* $ACTOR
+          \\n*Run:* [View]($SERVER_URL/$REPO/actions/runs/$RUN_ID)"
         else
           RESULT_EMOJI=""
           case "${{ inputs.result }}" in
@@ -76,11 +87,11 @@ runs:
           esac
           
           MESSAGE="${RESULT_EMOJI} *Build $(escape_md "${{ inputs.result }}")*
-          \n*Platform:* $(escape_md "${{ inputs.platform }}")
-          \n*Flavor:* $(escape_md "${{ inputs.flavor }}")
-          \n*Duration:* $(escape_md "${{ inputs.duration }}")
-          \n*Artifact:* $(escape_md "${{ inputs.artifact_name }}")
-          \n*Run:* [View](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+          \\n*Platform:* $PLATFORM
+          \\n*Flavor:* $FLAVOR
+          \\n*Duration:* $DURATION
+          \\n*Artifact:* $ARTIFACT
+          \\n*Run:* [View]($SERVER_URL/$REPO/actions/runs/$RUN_ID)"
         fi
 
         echo "$MESSAGE"
