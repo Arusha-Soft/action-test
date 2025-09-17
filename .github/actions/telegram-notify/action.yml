@@ -51,15 +51,19 @@ runs:
     - name: Send Telegram notification
       if: steps.check_telegram.outputs.has_telegram == 'true'
       run: |
+        escape_md() {
+              echo "$1" | sed -E 's/([_*\[\]()~`>#+\-=|{}.!])/\\\1/g'
+                    }
+                    
         MESSAGE=""
         if [ "${{ inputs.status }}" = "start" ]; then
           MESSAGE="🚀 *Build Started* 
-          \n*Platform:* ${{ inputs.platform }}
-          \n*Flavor:* ${{ inputs.flavor }}
-          \n*Repo:* ${{ github.repository }}
-          \n*Branch:* ${{ github.ref_name }}
-          \n*Commit:* ${GITHUB_SHA:0:7}
-          \n*By:* ${{ github.actor }}
+          \n*Platform:* $escape_md($"{{ inputs.platform }})
+          \n*Flavor:* $escape_md($"{{ inputs.flavor }})
+          \n*Repo:* $(escape_md("${{ github.repository }}")
+          \n*Branch:* $(escape_md("${{github.ref_name}}")
+          \n*Commit:* $(escape_md("${{GITHUB_SHA:0:7}})
+          \n*By:* $(escape_md($"{{ github.actor }})
           \n*Run:* [View](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
         else
           RESULT_EMOJI=""
@@ -79,7 +83,7 @@ runs:
         fi
 
         echo "$MESSAGE"
-        
+
         curl -s -X POST "https://api.telegram.org/bot${{ inputs.bot_token }}/sendMessage" \
           -H "Content-Type: application/json" \
           -d "{
