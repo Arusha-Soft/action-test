@@ -72,9 +72,11 @@ runs:
           MESSAGE="🚀 *Build Started* 
           \\n*Platform:* $PLATFORM
           \\n*Flavor:* $FLAVOR
-          
+          \\n*Repo:* $REPO
+          \\n*Branch:* $BRANCH
+          \\n*Commit:* $COMMIT
           \\n*By:* $ACTOR
-          \\n*Run:* [View]($SERVER_URL/$REPO/actions/runs/$RUN_ID)"
+          \n*Run:* [View](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
         else
           RESULT_EMOJI=""
           case "${{ inputs.result }}" in
@@ -85,22 +87,29 @@ runs:
           esac
           
           MESSAGE="${RESULT_EMOJI} *Build $(escape_md "${{ inputs.result }}")*
-          \\n*Platform:* $PLATFORM
-          \\n*Flavor:* $FLAVOR
-          \\n*Duration:* $DURATION
-          \\n*Artifact:* $ARTIFACT
-          \\n*Run:* [View]($SERVER_URL/$REPO/actions/runs/$RUN_ID)"
+          \n*Platform:* $(escape_md "${{ inputs.platform }}")
+          \n*Flavor:* $(escape_md "${{ inputs.flavor }}")
+          \n*Duration:* $(escape_md "${{ inputs.duration }}")
+          \n*Artifact:* $(escape_md "${{ inputs.artifact_name }}")
+          \n*Run:* [View](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
         fi
 
+        JSON_DATA=$(jq -n \
+          --arg chat_id "${{ inputs.chat_id }}" \
+          --arg message_thread_id "${{ inputs.chat_thread_id }}" \
+          --arg text "$MESSAGE" \
+          '{
+            chat_id: $chat_id,
+            message_thread_id: $message_thread_id,
+            text: $text,
+            parse_mode: "MarkdownV2",  # Telegram's Markdown version 2
+            disable_web_page_preview: true  # Disable link previews for cleaner appearance
+          }')
+          
         echo "$MESSAGE"
         
         curl -s -X POST "https://api.telegram.org/bot${{ inputs.bot_token }}/sendMessage" \
-          -H "Content-Type: application/json" \
-          -d "{
-            \"chat_id\": \"${{ inputs.chat_id }}\",
-            \"message_thread_id\": \"${{ inputs.chat_thread_id }}\",
-            \"text\": \"$MESSAGE\",
-            \"parse_mode\": \"MarkdownV2\",
-            \"disable_web_page_preview\": true
-          }"
+          -H "Content-Type: application/json" \  # Set content type header
+          -d "$JSON_DATA"  # Send the JSON data as request body
+          
       shell: bash
