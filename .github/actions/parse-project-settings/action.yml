@@ -18,8 +18,8 @@ runs:
       id: parse_settings
       run: |
         
-        PRODUCT_NAME=Product Name
-        BUNDLE_VERSION=Bundle Version
+        PRODUCT_NAME=Product
+        BUNDLE_VERSION=Bundle
         
         echo "product_name=$PRODUCT_NAME" >> $GITHUB_OUTPUT
         echo "bundle_version=$BUNDLE_VERSION" >> $GITHUB_OUTPUT
