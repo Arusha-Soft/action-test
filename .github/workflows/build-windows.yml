@@ -92,7 +92,6 @@ jobs:
         targetPlatform: StandaloneWindows64
         buildMethod: BuildScript.BuildWindows
         customParameters: -development ${{ env.DEVELOPMENT }}
-        buildsPath: build/StandaloneWindows64
         runAsHostUser: true
         customImage: ''
         sshAgent: ''
@@ -114,48 +113,46 @@ jobs:
         rm cert.pfx
       shell: bash
 
-#    - name: Prepare Windows artifact
-#      run: |
-#        cd build/Windows
-#        ARTIFACT_NAME="${{ steps.project_settings.outputs.base_filename }}_Windows"
-#        # Move contents to a properly named directory
-#        mkdir -p "$ARTIFACT_NAME"
-#        shopt -s dotglob
-#        mv -- * "$ARTIFACT_NAME"/ 2>/dev/null || true
-#        shopt -u dotglob
-#        echo "ARTIFACT_NAME=$ARTIFACT_NAME" >> $GITHUB_ENV
-#        echo "name=$ARTIFACT_NAME" >> $GITHUB_OUTPUT
-#      shell: bash
-#      id: prepare_artifact
+    - name: Prepare Windows artifact
+      run: |
+        cd build/Windows
+        ARTIFACT_NAME="${{ steps.project_settings.outputs.base_filename }}_Windows"
+        # Move contents to a properly named directory
+        mkdir -p "$ARTIFACT_NAME"
+        shopt -s dotglob
+        mv -- * "$ARTIFACT_NAME"/ 2>/dev/null || true
+        shopt -u dotglob
+        echo "ARTIFACT_NAME=$ARTIFACT_NAME" >> $GITHUB_ENV
+      shell: bash
 
-#    - name: Upload Windows artifact
-#      uses: actions/upload-artifact@v4
-#      with:
-#        name: Build-StandaloneWindows64
-#        path: build/StandaloneWindows64
-#        retention-days: 1
+    - name: Upload Windows artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ env.ARTIFACT_NAME }}
+        path: build/Windows/${{ env.ARTIFACT_NAME }}
+        retention-days: 1
 
-#    - name: Create archive for Telegram (Windows only)
-#      if: success()
-#      run: |
-#        cd build/Windows
-#        # Install p7zip if not available
-#        sudo apt-get update && sudo apt-get install -y p7zip-full
-#        
-#        # Create split archive (45MB parts)
-#        7z a -v45m "${{ env.ARTIFACT_NAME }}.7z" "${{ env.ARTIFACT_NAME }}"
-#        echo "ARCHIVE_FILES=$(ls ${{ env.ARTIFACT_NAME }}.7z.* 2>/dev/null | tr '\n' ' ')" >> $GITHUB_ENV
-#      shell: bash
+    - name: Create archive for Telegram (Windows only)
+      if: success()
+      run: |
+        cd build/Windows
+        # Install p7zip if not available
+        sudo apt-get update && sudo apt-get install -y p7zip-full
+        
+        # Create split archive (45MB parts)
+        7z a -v45m "${{ env.ARTIFACT_NAME }}.7z" "${{ env.ARTIFACT_NAME }}"
+        echo "ARCHIVE_FILES=$(ls ${{ env.ARTIFACT_NAME }}.7z.* 2>/dev/null | tr '\n' ' ')" >> $GITHUB_ENV
+      shell: bash
 
-#    - name: Upload archive to Telegram
-#      if: success() && env.ARCHIVE_FILES != ''
-#      uses: ./.github/actions/telegram-sendfile
-#      with:
-#        files: build/Windows/${{ env.ARTIFACT_NAME }}.7z.*
-#        caption: "Windows build: ${{ env.ARTIFACT_NAME }}"
-#        bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-#        chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
-#        chat_thread_id: ${{ secrets.TELEGRAM_CHAT_THREAD_ID }}
+    - name: Upload archive to Telegram
+      if: success() && env.ARCHIVE_FILES != ''
+      uses: ./.github/actions/telegram-sendfile
+      with:
+        files: build/Windows/${{ env.ARTIFACT_NAME }}.7z.*
+        caption: "Windows build: ${{ env.ARTIFACT_NAME }}"
+        bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
+        chat_thread_id: ${{ secrets.TELEGRAM_CHAT_THREAD_ID }}
 
     - name: Calculate duration
       if: always()
