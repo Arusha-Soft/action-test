@@ -14,23 +14,14 @@ outputs:
 runs:
   using: composite
   steps:
-    - name: Install yq
-      run: |
-        if ! command -v yq &> /dev/null; then
-          echo "yq not found, installing..."
-          sudo pip install yq
-        else
-          echo "yq is already installed"
-          yq --version
-        fi
-      shell: bash
-
     - name: Parse ProjectSettings.asset
       id: parse_settings
       run: |
-        # Extract productName and bundleVersion from ProjectSettings.asset
-        PRODUCT_NAME=$(yq -r .productName ProjectSettings/ProjectSettings.asset)
-        BUNDLE_VERSION=$(yq -r .bundleVersion ProjectSettings/ProjectSettings.asset)
+        # Extract productName (same line as key)
+        PRODUCT_NAME=$(grep 'productName:' ProjectSettings/ProjectSettings.asset | cut -d: -f2 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+
+        # Extract bundleVersion (same line as key)
+        BUNDLE_VERSION=$(grep 'bundleVersion:' ProjectSettings/ProjectSettings.asset | cut -d: -f2 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
         
         echo "product_name=$PRODUCT_NAME" >> $GITHUB_OUTPUT
         echo "bundle_version=$BUNDLE_VERSION" >> $GITHUB_OUTPUT
