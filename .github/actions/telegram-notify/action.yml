@@ -51,20 +51,16 @@ runs:
     - name: Send Telegram notification
       if: steps.check_telegram.outputs.has_telegram == 'true'
       run: |
-        escape() {
-          echo "$1" | sed -E 's/([_*\[\]()~`>#+\-=|{}.!])/\\\1/g'
-        }
-
         MESSAGE=""
         if [ "${{ inputs.status }}" = "start" ]; then
           MESSAGE="🚀 *Build Started* 
-          \n*Platform:* $(escape "${{ inputs.platform }}")
-          \n*Flavor:* $(escape "${{ inputs.flavor }}")
-          \n*Repo:* $(escape "${{ github.repository }}")
-          \n*Branch:* $(escape "${{ github.ref_name }}")
-          \n*Commit:* $(escape "${GITHUB_SHA:0:7}")
-          \n*By:* $(escape "${{ github.actor }}")
-          \n*Run:* [View]($(escape "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"))"
+          \n*Platform:* ${{ inputs.platform }}
+          \n*Flavor:* ${{ inputs.flavor }}
+          \n*Repo:* ${{ github.repository }}
+          \n*Branch:* ${{ github.ref_name }}
+          \n*Commit:* ${GITHUB_SHA:0:7}
+          \n*By:* ${{ github.actor }}
+          \n*Run:* [View](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
         else
           RESULT_EMOJI=""
           case "${{ inputs.result }}" in
@@ -73,15 +69,17 @@ runs:
             "cancelled") RESULT_EMOJI="⏹️" ;;
             *) RESULT_EMOJI="ℹ️" ;;
           esac
-
-          MESSAGE="$RESULT_EMOJI *Build $(escape "${{ inputs.result }}")* 
-          \n*Platform:* $(escape "${{ inputs.platform }}")
-          \n*Flavor:* $(escape "${{ inputs.flavor }}")
-          \n*Duration:* $(escape "${{ inputs.duration }}")
-          \n*Artifact:* $(escape "${{ inputs.artifact_name }}")
-          \n*Run:* [View]($(escape "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"))"
+          
+          MESSAGE="$RESULT_EMOJI *Build ${{ inputs.result }}* 
+          \n*Platform:* ${{ inputs.platform }}
+          \n*Flavor:* ${{ inputs.flavor }}
+          \n*Duration:* ${{ inputs.duration }}
+          \n*Artifact:* ${{ inputs.artifact_name }}
+          \n*Run:* [View](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
         fi
 
+        echo "$MESSAGE"
+        
         curl -s -X POST "https://api.telegram.org/bot${{ inputs.bot_token }}/sendMessage" \
           -H "Content-Type: application/json" \
           -d "{
