@@ -123,13 +123,15 @@ jobs:
         mv -- * "$ARTIFACT_NAME"/ 2>/dev/null || true
         shopt -u dotglob
         echo "ARTIFACT_NAME=$ARTIFACT_NAME" >> $GITHUB_ENV
+        echo "name=$ARTIFACT_NAME" >> $GITHUB_OUTPUT
       shell: bash
+      id: prepare_artifact
 
     - name: Upload Windows artifact
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ env.ARTIFACT_NAME }}
-        path: build/Windows/${{ env.ARTIFACT_NAME }}
+        name: ${{ steps.prepare_artifact.outputs.name }}
+        path: build/Windows/${{ steps.prepare_artifact.outputs.name }}
         retention-days: 1
 
     - name: Create archive for Telegram (Windows only)
