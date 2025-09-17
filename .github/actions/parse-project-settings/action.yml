@@ -1,6 +1,16 @@
 name: 'Parse Project Settings'
 description: 'Parse Unity project settings for name and version'
 
+outputs:
+  product_name:
+    value: ${{ steps.parse_settings.outputs.product_name }}
+  bundle_version:
+    value: ${{ steps.parse_settings.outputs.bundle_version }}
+  base_filename:
+    value: ${{ steps.parse_settings.outputs.base_filename }}
+  unity_version:
+    value: ${{ steps.parse_unity_version.outputs.unity_version }}
+
 runs:
   using: composite
   steps:
