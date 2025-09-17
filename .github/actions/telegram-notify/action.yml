@@ -72,9 +72,7 @@ runs:
           MESSAGE="🚀 *Build Started* 
           \\n*Platform:* $PLATFORM
           \\n*Flavor:* $FLAVOR
-          \\n*Repo:* $REPO
-          \\n*Branch:* $BRANCH
-          \\n*Commit:* $COMMIT
+          
           \\n*By:* $ACTOR
           \\n*Run:* [View]($SERVER_URL/$REPO/actions/runs/$RUN_ID)"
         else
