@@ -128,12 +128,12 @@ jobs:
 #      shell: bash
 #      id: prepare_artifact
 
-    - name: Upload Windows artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: Build-StandaloneWindows64
-        path: build/StandaloneWindows64
-        retention-days: 1
+#    - name: Upload Windows artifact
+#      uses: actions/upload-artifact@v4
+#      with:
+#        name: Build-StandaloneWindows64
+#        path: build/StandaloneWindows64
+#        retention-days: 1
 
 #    - name: Create archive for Telegram (Windows only)
 #      if: success()
