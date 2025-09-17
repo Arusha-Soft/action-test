@@ -57,7 +57,7 @@ runs:
       shell: bash
       run: |
         # Choose a friendly title (use repo; uncomment to prefer custom project name)
-        TITLE="${{ github.repository }}"
+        TITLE="$(basename "${{ github.repository }}")"
         # [ -n "${{ inputs.project_name }}" ] && TITLE="${{ inputs.project_name }}"
 
         # Human-readable status line + emoji
