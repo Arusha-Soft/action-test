@@ -18,8 +18,6 @@ runs:
       id: parse_settings
       run: |
         # Extract productName and bundleVersion from ProjectSettings.asset
-        # PRODUCT_NAME=$(grep -A1 'productName:' ProjectSettings/ProjectSettings.asset | tail -1 | sed 's/.*: //' | tr -d ' ')
-        # BUNDLE_VERSION=$(grep -A1 'bundleVersion:' ProjectSettings/ProjectSettings.asset | tail -1 | sed 's/.*: //' | tr -d ' ')
         
         PRODUCT_NAME=Product Name
         BUNDLE_VERSION=Bundle Version
