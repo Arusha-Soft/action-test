@@ -72,6 +72,9 @@ jobs:
         status: start
         platform: Windows
         flavor: ${{ env.FLAVOR }}
+        bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
+        chat_thread_id: ${{ secrets.TELEGRAM_CHAT_THREAD_ID }}
 
     - name: Cache Library
       uses: actions/cache@v3
