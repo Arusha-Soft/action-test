@@ -17,7 +17,6 @@ runs:
     - name: Parse ProjectSettings.asset
       id: parse_settings
       run: |
-        # Extract productName and bundleVersion from ProjectSettings.asset
         
         PRODUCT_NAME=Product Name
         BUNDLE_VERSION=Bundle Version
