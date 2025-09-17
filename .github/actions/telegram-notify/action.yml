@@ -34,6 +34,10 @@ inputs:
     description: 'Telegram Chat Thread ID (for groups)'
     required: true
     default: ''
+  # project_name:
+  #   description: 'Optional display name for the project'
+  #   required: false
+  #   default: ''
 
 runs:
   using: composite
@@ -50,66 +54,55 @@ runs:
 
     - name: Send Telegram notification
       if: steps.check_telegram.outputs.has_telegram == 'true'
+      shell: bash
       run: |
+        # Choose a friendly title (use repo; uncomment to prefer custom project name)
+        TITLE="${{ github.repository }}"
+        # [ -n "${{ inputs.project_name }}" ] && TITLE="${{ inputs.project_name }}"
 
-        escape_markdown() {
-          echo "$1" | sed -e 's/\([_[\]()~`>#\+\-=|{}.!]\)/\\\\\1/g'
-         }
-
-        PLATFORM=$(escape_markdown "${{ inputs.platform }}")
-        FLAVOR=$(escape_markdown "${{ inputs.flavor }}")
-        REPO=$(escape_markdown "${{ github.repository }}")
-        BRANCH=$(escape_markdown "${{ github.ref_name }}")
-        COMMIT=$(escape_markdown "${GITHUB_SHA:0:7}")
-        ACTOR=$(escape_markdown "${{ github.actor }}")
-        DURATION=$(escape_markdown "${{ inputs.duration }}")
-        ARTIFACT=$(escape_markdown "${{ inputs.artifact_name }}")
-        SERVER_URL=$(escape_markdown "${{ github.server_url }}")
-        RUN_ID=$(escape_markdown "${{ github.run_id }}")
-
-        MESSAGE=""
+        # Human-readable status line + emoji
         if [ "${{ inputs.status }}" = "start" ]; then
-          MESSAGE="🚀 *Build Started* 
-          \\n*Platform:* $PLATFORM
-          \\n*Flavor:* $FLAVOR
-          \\n*Repo:* $REPO
-          \\n*Branch:* $BRANCH
-          \\n*Commit:* $COMMIT
-          \\n*By:* $ACTOR
-          \n*Run:* [View](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+          STATUS="🚀 Started"
         else
-          RESULT_EMOJI=""
           case "${{ inputs.result }}" in
-            "success") RESULT_EMOJI="✅" ;;
-            "failure") RESULT_EMOJI="❌" ;;
-            "cancelled") RESULT_EMOJI="⏹️" ;;
-            *) RESULT_EMOJI="ℹ️" ;;
+            success)   STATUS="✅ Success" ;;
+            failure)   STATUS="❌ Failed" ;;
+            cancelled) STATUS="⏹️ Cancelled" ;;
+            *)         STATUS="ℹ️ Info" ;;
           esac
-          
-          MESSAGE="${RESULT_EMOJI} *Build $(escape_md "${{ inputs.result }}")*
-          \n*Platform:* $(escape_md "${{ inputs.platform }}")
-          \n*Flavor:* $(escape_md "${{ inputs.flavor }}")
-          \n*Duration:* $(escape_md "${{ inputs.duration }}")
-          \n*Artifact:* $(escape_md "${{ inputs.artifact_name }}")
-          \n*Run:* [View](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
         fi
 
-        JSON_DATA=$(jq -n \
-          --arg chat_id "${{ inputs.chat_id }}" \
-          --arg message_thread_id "${{ inputs.chat_thread_id }}" \
-          --arg text "$MESSAGE" \
-          '{
-            chat_id: $chat_id,
-            message_thread_id: $message_thread_id,
-            text: $text,
-            parse_mode: "MarkdownV2",  # Telegram's Markdown version 2
-            disable_web_page_preview: true  # Disable link previews for cleaner appearance
-          }')
-          
+        MESSAGE="[🎮 Project: ${TITLE}]
+        =============================
+
+        🖥️ Platform:   ${{ inputs.platform }}
+        🎨 Flavor:     ${{ inputs.flavor }}
+        📦 Repo:       ${{ github.repository }}
+        🌿 Branch:     ${{ github.ref_name }}
+        🔑 Commit:     ${GITHUB_SHA:0:7}
+        👤 By:         ${{ github.actor }}
+
+        📊 Build Status: ${STATUS}"
+
+        if [ "${{ inputs.status }}" != "start" ]; then
+          MESSAGE="${MESSAGE}
+          ⏱️ Duration:   ${{ inputs.duration }}
+          📎 Artifact:   ${{ inputs.artifact_name }}"
+        fi
+
+        MESSAGE="${MESSAGE}
+
+        ➡️ Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+        -----------------------------
+        ©️ Arusha Soft"
+
+        echo "---- MESSAGE START ----"
         echo "$MESSAGE"
-        
-        curl -s -X POST "https://api.telegram.org/bot${{ inputs.bot_token }}/sendMessage" \
-          -H "Content-Type: application/json" \  # Set content type header
-          -d "$JSON_DATA"  # Send the JSON data as request body
-          
-      shell: bash
+        echo "---- MESSAGE END ----"
+
+        curl -s "https://api.telegram.org/bot${{ inputs.bot_token }}/sendMessage" \
+          -d chat_id="${{ inputs.chat_id }}" \
+          -d message_thread_id="${{ inputs.chat_thread_id }}" \
+          --data-urlencode text="$MESSAGE" \
+          -d disable_web_page_preview=true
