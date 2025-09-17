@@ -140,15 +140,15 @@ jobs:
         sudo apt-get update && sudo apt-get install -y p7zip-full
         
         # Create split archive (45MB parts)
-        7z a -v45m "${{ env.ARTIFACT_NAME }}" "${{ env.ARTIFACT_NAME }}"
-        echo "ARCHIVE_FILES=$(ls ${{ env.ARTIFACT_NAME }}.* 2>/dev/null | tr '\n' ' ')" >> $GITHUB_ENV
+        7z a -v45m "${{ env.ARTIFACT_NAME }}.7z" "${{ env.ARTIFACT_NAME }}"
+        echo "ARCHIVE_FILES=$(ls ${{ env.ARTIFACT_NAME }}.7z.* 2>/dev/null | tr '\n' ' ')" >> $GITHUB_ENV
       shell: bash
 
     - name: Upload archive to Telegram
       if: success() && env.ARCHIVE_FILES != ''
       uses: ./.github/actions/telegram-sendfile
       with:
-        files: build/Windows/${{ env.ARTIFACT_NAME }}.*
+        files: build/Windows/${{ env.ARTIFACT_NAME }}.7z.*
         caption: "Windows build: ${{ env.ARTIFACT_NAME }}"
         bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
