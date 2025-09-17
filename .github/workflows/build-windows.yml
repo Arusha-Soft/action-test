@@ -148,7 +148,7 @@ jobs:
       if: success() && env.ARCHIVE_FILES != ''
       uses: ./.github/actions/telegram-sendfile
       with:
-        files: build/Windows/${{ env.ARTIFACT_NAME }}.7z.*
+        files: build/Windows/${{ env.ARTIFACT_NAME }}.*
         caption: "Windows build: ${{ env.ARTIFACT_NAME }}"
         bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
