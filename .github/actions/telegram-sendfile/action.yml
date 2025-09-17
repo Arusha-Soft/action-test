@@ -37,15 +37,48 @@ runs:
     - name: Upload files to Telegram
       if: steps.check_telegram.outputs.has_telegram == 'true'
       run: |
-        for file in ${{ inputs.files }}; do
+        # Create an array of files
+        files=(${{ inputs.files }})
+        media_parts=()
+        
+        # Build media JSON for multiple documents
+        for file in "${files[@]}"; do
           if [ -f "$file" ]; then
-            echo "Uploading $file to Telegram..."
-            curl -s -X POST "https://api.telegram.org/bot${{ inputs.bot_token }}/sendDocument" \
-              -H "Content-Type: multipart/form-data" \
-              -F "chat_id=${{ inputs.chat_id }}" \
-              -F "message_thread_id=${{ inputs.chat_thread_id }}" \
-              -F "document=@$file" \
-              -F "caption=${{ inputs.caption }}"
+            echo "Adding file: $file"
+            # For each file after the first, we need to add as a separate media item
+            media_parts+=("{\"type\": \"document\", \"media\": \"attach://$(basename "$file")\"}")
           fi
         done
+        
+        if [ ${#media_parts[@]} -eq 0 ]; then
+          echo "No valid files found to upload."
+          exit 0
+        fi
+        
+        # Join media parts with commas
+        media_json="[$(IFS=,; echo "${media_parts[*]}")]"
+        
+        # Build curl command with all files
+        curl_cmd=(curl -s -X POST "https://api.telegram.org/bot${{ inputs.bot_token }}/sendMediaGroup")
+        curl_cmd+=(-H "Content-Type: multipart/form-data")
+        curl_cmd+=(-F "chat_id=${{ inputs.chat_id }}")
+        curl_cmd+=(-F "message_thread_id=${{ inputs.chat_thread_id }}")
+        curl_cmd+=(-F "media='$media_json'")
+        
+        # Add each file as attachment
+        for file in "${files[@]}"; do
+          if [ -f "$file" ]; then
+            curl_cmd+=(-F "$(basename "$file")=@$file")
+          fi
+        done
+        
+        echo "Uploading ${#media_parts[@]} files in one message..."
+        "${curl_cmd[@]}"
+        
+        # Check if upload was successful
+        if [ $? -eq 0 ]; then
+          echo "Files uploaded successfully in one message!"
+        else
+          echo "Error uploading files as media group."
+        fi
       shell: bash

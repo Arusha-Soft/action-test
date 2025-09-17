@@ -146,10 +146,15 @@ jobs:
 
     - name: Upload archive to Telegram
       if: success() && env.ARCHIVE_FILES != ''
-      uses: ./.github/actions/telegram-sendfile
+      uses: ./.github/actions/telegram-notify
       with:
         files: build/Windows/${{ env.ARTIFACT_NAME }}.7z.*
-        caption: "Windows build: ${{ env.ARTIFACT_NAME }}"
+        status: end
+        result: ${{ job.status }}
+        duration: ${{ env.DURATION }}
+        artifact_name: ${{ env.ARTIFACT_NAME }}
+        platform: Windows
+        flavor: ${{ env.FLAVOR }}
         bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
         chat_thread_id: ${{ secrets.TELEGRAM_CHAT_THREAD_ID }}
@@ -163,7 +168,7 @@ jobs:
       shell: bash
 
     - name: Send build end notification
-      if: always()
+      if: failure()
       uses: ./.github/actions/telegram-notify
       with:
         status: end

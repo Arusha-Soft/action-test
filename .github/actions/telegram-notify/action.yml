@@ -1,9 +1,11 @@
-name: 'Telegram Notification'
-description: 'Send Telegram notification for build status'
+name: 'Telegram Action'
+description: 'Send Telegram notifications with optional file upload'
 inputs:
+  # Notification inputs
   status:
     description: 'Status type (start/end)'
-    required: true
+    required: false
+    default: ''
   result:
     description: 'Build result (success/failure/cancelled)'
     required: false
@@ -18,26 +20,36 @@ inputs:
     default: ''
   platform:
     description: 'Build platform'
-    required: true
+    required: false
+    default: ''
   flavor:
     description: 'Build flavor (dev/release)'
-    required: true
+    required: false
+    default: ''
+  
+  # File upload inputs
+  files:
+    description: 'File pattern to upload (optional)'
+    required: false
+    default: ''
+  
+  # Common inputs
   bot_token:
     description: 'Telegram Bot Token'
     required: true
     default: ''
-  chat_id: 
+  chat_id:
     description: 'Telegram Chat ID'
     required: true
     default: ''
   chat_thread_id:
     description: 'Telegram Chat Thread ID (for groups)'
-    required: true
+    required: false
     default: ''
-  # project_name:
-  #   description: 'Optional display name for the project'
-  #   required: false
-  #   default: ''
+  project_name:
+    description: 'Optional display name for the project'
+    required: false
+    default: ''
 
 runs:
   using: composite
@@ -52,13 +64,17 @@ runs:
         fi
       shell: bash
 
-    - name: Send Telegram notification
+    - name: Generate message content
+      id: generate_message
       if: steps.check_telegram.outputs.has_telegram == 'true'
       shell: bash
       run: |
-        # Choose a friendly title (use repo; uncomment to prefer custom project name)
-        TITLE="$(basename "${{ github.repository }}")"
-        # [ -n "${{ inputs.project_name }}" ] && TITLE="${{ inputs.project_name }}"
+        # Choose a friendly title
+        if [ -n "${{ inputs.project_name }}" ]; then
+          TITLE="${{ inputs.project_name }}"
+        else
+          TITLE="$(basename "${{ github.repository }}")"
+        fi
 
         # Human-readable status line + emoji
         if [ "${{ inputs.status }}" = "start" ]; then
@@ -97,12 +113,88 @@ runs:
         -----------------------------
         ©️ Arusha Soft"
 
-        echo "---- MESSAGE START ----"
-        echo "$MESSAGE"
-        echo "---- MESSAGE END ----"
+        echo "message=$MESSAGE" >> $GITHUB_OUTPUT
+        echo "Generated message with $(echo -n "$MESSAGE" | wc -c) characters"
 
+    - name: Send Telegram message only
+      if: steps.check_telegram.outputs.has_telegram == 'true' && inputs.files == ''
+      shell: bash
+      run: |
+        echo "Sending notification message only..."
         curl -s "https://api.telegram.org/bot${{ inputs.bot_token }}/sendMessage" \
           -d chat_id="${{ inputs.chat_id }}" \
           -d message_thread_id="${{ inputs.chat_thread_id }}" \
-          --data-urlencode text="$MESSAGE" \
+          --data-urlencode text="${{ steps.generate_message.outputs.message }}" \
           -d disable_web_page_preview=true
+        echo "Message sent successfully!"
+
+    - name: Upload files with message as caption
+      if: steps.check_telegram.outputs.has_telegram == 'true' && inputs.files != ''
+      run: |
+        # Create an array of files
+        files=(${{ inputs.files }})
+        valid_files=()
+        
+        # Check which files exist
+        for file in "${files[@]}"; do
+          if [ -f "$file" ]; then
+            echo "Found file: $file"
+            valid_files+=("$file")
+          else
+            echo "Warning: File not found: $file"
+          fi
+        done
+        
+        if [ ${#valid_files[@]} -eq 0 ]; then
+          echo "No valid files found. Falling back to message only."
+          curl -s "https://api.telegram.org/bot${{ inputs.bot_token }}/sendMessage" \
+            -d chat_id="${{ inputs.chat_id }}" \
+            -d message_thread_id="${{ inputs.chat_thread_id }}" \
+            --data-urlencode text="${{ steps.generate_message.outputs.message }}" \
+            -d disable_web_page_preview=true
+          exit 0
+        fi
+        
+        # Build media JSON for multiple documents
+        media_parts=()
+        for file in "${valid_files[@]}"; do
+          media_parts+=("{\"type\": \"document\", \"media\": \"attach://$(basename "$file")\"}")
+        done
+        
+        # Join media parts with commas
+        media_json="[$(IFS=,; echo "${media_parts[*]}")]"
+        
+        # Build curl command with all files
+        curl_cmd=(curl -s -X POST "https://api.telegram.org/bot${{ inputs.bot_token }}/sendMediaGroup")
+        curl_cmd+=(-H "Content-Type: multipart/form-data")
+        curl_cmd+=(-F "chat_id=${{ inputs.chat_id }}")
+        
+        # Add message_thread_id only if provided
+        if [ -n "${{ inputs.chat_thread_id }}" ]; then
+          curl_cmd+=(-F "message_thread_id=${{ inputs.chat_thread_id }}")
+        fi
+        
+        # Add message as caption
+        curl_cmd+=(-F "caption=${{ steps.generate_message.outputs.message }}")
+        curl_cmd+=(-F "media='$media_json'")
+        
+        # Add each file as attachment
+        for file in "${valid_files[@]}"; do
+          curl_cmd+=(-F "$(basename "$file")=@$file")
+        done
+        
+        echo "Uploading ${#valid_files[@]} files with message as caption..."
+        "${curl_cmd[@]}"
+        
+        # Check if upload was successful
+        if [ $? -eq 0 ]; then
+          echo "Files uploaded successfully with message caption!"
+        else
+          echo "Error uploading files. Trying to send message only as fallback..."
+          curl -s "https://api.telegram.org/bot${{ inputs.bot_token }}/sendMessage" \
+            -d chat_id="${{ inputs.chat_id }}" \
+            -d message_thread_id="${{ inputs.chat_thread_id }}" \
+            --data-urlencode text="${{ steps.generate_message.outputs.message }}" \
+            -d disable_web_page_preview=true
+        fi
+      shell: bash
