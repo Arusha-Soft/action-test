@@ -92,6 +92,7 @@ jobs:
         targetPlatform: StandaloneWindows64
         buildMethod: BuildScript.BuildWindows
         customParameters: -development ${{ env.DEVELOPMENT }}
+        buildsPath: build/StandaloneWindows64
         runAsHostUser: true
         customImage: ''
         sshAgent: ''
