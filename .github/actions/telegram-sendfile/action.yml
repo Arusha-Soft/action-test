@@ -45,7 +45,6 @@ runs:
         ls -la
         if [ -n "$FILES" ] && [ "$FILES" != "" ]; then
           echo "Looking for files matching pattern..."
-          # Use find to locate files with proper pattern matching
           found_files=$(find . -name "$FILES" -type f 2>/dev/null || true)
           if [ -n "$found_files" ]; then
             echo "Found files:"
@@ -67,17 +66,17 @@ runs:
           curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendMessage" \
             -d chat_id="$CHAT_ID" \
             -d message_thread_id="$CHAT_THREAD_ID" \
-            --data-urlencode text="$CAPTION" \
+            --data-urlencode "text=$CAPTION" \
             -d parse_mode="HTML" \
             -d disable_web_page_preview=true
           exit 0
         fi
         
-        # Find files using proper pattern matching
+        # Find files
         echo "Looking for files matching: $FILES"
         valid_files=()
         
-        # Use find to get files with proper glob pattern handling
+        # Use find to get files
         while IFS= read -r -d '' file; do
           if [ -f "$file" ]; then
             valid_files+=("$file")
@@ -88,7 +87,6 @@ runs:
         # Alternative approach if find doesn't work
         if [ ${#valid_files[@]} -eq 0 ]; then
           echo "Trying alternative file discovery method..."
-          # Use shell glob expansion
           shopt -s nullglob
           for file in $FILES; do
             if [ -f "$file" ]; then
@@ -106,7 +104,7 @@ runs:
           curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendMessage" \
             -d chat_id="$CHAT_ID" \
             -d message_thread_id="$CHAT_THREAD_ID" \
-            --data-urlencode text="$CAPTION" \
+            --data-urlencode "text=$CAPTION" \
             -d parse_mode="HTML" \
             -d disable_web_page_preview=true
           exit 0
@@ -126,33 +124,36 @@ runs:
         else
           echo "Uploading ${#valid_files[@]} files in one message..."
           
+          # Create a temporary file for the media JSON
+          media_file=$(mktemp)
+          
           # Build media JSON array
-          media_json='['
+          echo '[' > "$media_file"
           first=true
           
           for file in "${valid_files[@]}"; do
             filename=$(basename "$file")
             # Escape special characters in filename for JSON
-            filename_escaped=$(echo "$filename" | sed 's/"/\\"/g')
+            filename_escaped=$(printf '%s' "$filename" | jq -R . | sed 's/^"//;s/"$//')
             
             if [ "$first" = true ]; then
               # First file gets the caption
-              media_json+="{\"type\": \"document\", \"media\": \"attach://$filename_escaped\", \"caption\": \"$CAPTION\", \"parse_mode\": \"HTML\"}"
+              echo "{\"type\": \"document\", \"media\": \"attach://$filename_escaped\", \"caption\": \"$CAPTION\", \"parse_mode\": \"HTML\"}" >> "$media_file"
               first=false
             else
-              media_json+=",{\"type\": \"document\", \"media\": \"attach://$filename_escaped\"}"
+              echo ",{\"type\": \"document\", \"media\": \"attach://$filename_escaped\"}" >> "$media_file"
             fi
           done
           
-          media_json+=']'
+          echo ']' >> "$media_file"
           
-          echo "Media JSON prepared"
+          echo "Media JSON prepared and saved to temporary file"
           
-          # Build the curl command with all files
+          # Build the curl command
           curl_cmd="curl -s -X POST \"https://api.telegram.org/bot$BOT_TOKEN/sendMediaGroup\" \
             -F \"chat_id=$CHAT_ID\" \
             -F \"message_thread_id=$CHAT_THREAD_ID\" \
-            -F \"media=$media_json\""
+            -F \"media=<$media_file\""
           
           # Add each file as attachment
           for file in "${valid_files[@]}"; do
@@ -161,28 +162,39 @@ runs:
           done
           
           echo "Executing curl command..."
-          # Execute the command and capture output
-          result=$(eval $curl_cmd 2>&1)
-          echo "Curl result: $result"
-        fi
-        
-        # Check if upload was successful
-        if [ $? -eq 0 ]; then
-          echo "Files uploaded successfully!"
-        else
-          echo "Error uploading files."
-          # Try fallback to individual file uploads
-          echo "Trying fallback: uploading files individually..."
-          for file in "${valid_files[@]}"; do
-            echo "Uploading $file individually..."
-            curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendDocument" \
-              -F "chat_id=$CHAT_ID" \
-              -F "message_thread_id=$CHAT_THREAD_ID" \
-              -F "document=@$file" \
-              -F "caption=$(if [ "$file" = "${valid_files[0]}" ]; then echo "$CAPTION"; fi)" \
-              -F "parse_mode=HTML"
-            sleep 1
-          done
+          # Execute the command
+          eval $curl_cmd
+          curl_exit_code=$?
+          
+          # Clean up temporary file
+          rm -f "$media_file"
+          
+          if [ $curl_exit_code -eq 0 ]; then
+            echo "Files uploaded successfully!"
+          else
+            echo "Error uploading files as media group. Trying fallback to individual uploads..."
+            # Upload files individually
+            for i in "${!valid_files[@]}"; do
+              file="${valid_files[$i]}"
+              echo "Uploading $file individually..."
+              if [ $i -eq 0 ]; then
+                # First file gets caption
+                curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendDocument" \
+                  -F "chat_id=$CHAT_ID" \
+                  -F "message_thread_id=$CHAT_THREAD_ID" \
+                  -F "document=@$file" \
+                  -F "caption=$CAPTION" \
+                  -F "parse_mode=HTML"
+              else
+                # Subsequent files without caption
+                curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendDocument" \
+                  -F "chat_id=$CHAT_ID" \
+                  -F "message_thread_id=$CHAT_THREAD_ID" \
+                  -F "document=@$file"
+              fi
+              sleep 1
+            done
+          fi
         fi
       shell: bash
       env:
