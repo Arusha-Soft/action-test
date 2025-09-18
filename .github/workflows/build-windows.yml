@@ -132,67 +132,61 @@ jobs:
         path: build/Windows/${{ env.ARTIFACT_NAME }}
         retention-days: 1
 
-  telegram:
-    runs-on: ubuntu-latest
-    needs: build-windows
-    if: success()
-
-    steps:
-      - name: Create archive for Telegram (Windows only)
-        if: success()
-        run: |
-          cd build/Windows
-          # Install p7zip if not available
-          sudo apt-get update && sudo apt-get install -y p7zip-full
+    - name: Create archive for Telegram (Windows only)
+      if: success()
+      run: |
+        cd build/Windows
+        # Install p7zip if not available
+        sudo apt-get update && sudo apt-get install -y p7zip-full
           
-          # Create split archive (45MB parts)
-          7z a -v45m "${{ env.ARTIFACT_NAME }}.7z" "${{ env.ARTIFACT_NAME }}"
-          echo "ARCHIVE_FILES=$(ls ${{ env.ARTIFACT_NAME }}.7z.* 2>/dev/null | tr '\n' ' ')" >> $GITHUB_ENV
-        shell: bash
+        # Create split archive (45MB parts)
+        7z a -v45m "${{ env.ARTIFACT_NAME }}.7z" "${{ env.ARTIFACT_NAME }}"
+        echo "ARCHIVE_FILES=$(ls ${{ env.ARTIFACT_NAME }}.7z.* 2>/dev/null | tr '\n' ' ')" >> $GITHUB_ENV
+      shell: bash
 
-      - name: Generate success message
-        if: success()
-        run: |
-          # Source the message generator script
-          source .github/scripts/generate-telegram-message.sh
+    - name: Generate success message
+      if: success()
+      run: |
+        # Source the message generator script
+        source .github/scripts/generate-telegram-message.sh
           
-          # Generate the exact same message format
-          MESSAGE=$(generate_telegram_message "end" "success" "${{ env.DURATION }}" "${{ env.ARTIFACT_NAME }}" "Windows" "${{ env.FLAVOR }}")
+        # Generate the exact same message format
+        MESSAGE=$(generate_telegram_message "end" "success" "${{ env.DURATION }}" "${{ env.ARTIFACT_NAME }}" "Windows" "${{ env.FLAVOR }}")
           
-          # Store the message in environment variable
-          echo "TELEGRAM_MESSAGE<<EOF" >> $GITHUB_ENV
-          echo "$MESSAGE" >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
-        shell: bash
+        # Store the message in environment variable
+        echo "TELEGRAM_MESSAGE<<EOF" >> $GITHUB_ENV
+        echo "$MESSAGE" >> $GITHUB_ENV
+        echo "EOF" >> $GITHUB_ENV
+      shell: bash
 
-      - name: Upload archive to Telegram
-        if: success() && env.ARCHIVE_FILES != ''
-        uses: ./.github/actions/telegram-sendfile
-        with:
-          files: build/Windows/${{ env.ARTIFACT_NAME }}.7z.*
-          caption: ${{ env.TELEGRAM_MESSAGE }}
-          bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
-          chat_thread_id: ${{ secrets.TELEGRAM_CHAT_THREAD_ID }}
+    - name: Upload archive to Telegram
+      if: success() && env.ARCHIVE_FILES != ''
+      uses: ./.github/actions/telegram-sendfile
+      with:
+        files: build/Windows/${{ env.ARTIFACT_NAME }}.7z.*
+        caption: ${{ env.TELEGRAM_MESSAGE }}
+        bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
+        chat_thread_id: ${{ secrets.TELEGRAM_CHAT_THREAD_ID }}
 
-      - name: Calculate duration
-        if: always()
-        run: |
-          END_TIME=$(date +%s)
-          DURATION=$((END_TIME - ${{ env.START_TIME }}))
-          echo "DURATION=$(printf '%02d:%02d' $(($DURATION/60)) $(($DURATION%60)))" >> $GITHUB_ENV
-        shell: bash
+    - name: Calculate duration
+      if: always()
+      run: |
+        END_TIME=$(date +%s)
+        DURATION=$((END_TIME - ${{ env.START_TIME }}))
+        echo "DURATION=$(printf '%02d:%02d' $(($DURATION/60)) $(($DURATION%60)))" >> $GITHUB_ENV
+      shell: bash
 
-      - name: Send build end notification
-        if: always() && (failure() || cancelled())
-        uses: ./.github/actions/telegram-notify
-        with:
-          status: end
-          result: ${{ job.status }}
-          duration: ${{ env.DURATION }}
-          artifact_name: ${{ env.ARTIFACT_NAME }}
-          platform: Windows
-          flavor: ${{ env.FLAVOR }}
-          bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
-          chat_thread_id: ${{ secrets.TELEGRAM_CHAT_THREAD_ID }}
+    - name: Send build end notification
+      if: always() && (failure() || cancelled())
+      uses: ./.github/actions/telegram-notify
+      with:
+        status: end
+        result: ${{ job.status }}
+        duration: ${{ env.DURATION }}
+        artifact_name: ${{ env.ARTIFACT_NAME }}
+        platform: Windows
+        flavor: ${{ env.FLAVOR }}
+        bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
+        chat_thread_id: ${{ secrets.TELEGRAM_CHAT_THREAD_ID }}
