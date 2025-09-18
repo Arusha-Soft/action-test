@@ -29,56 +29,16 @@ jobs:
       run: echo "START_TIME=$(date +%s)" >> $GITHUB_ENV
       shell: bash
 
-    # Ensure Git LFS is available on self-hosted runners
-    - name: Ensure Git LFS
-      shell: bash
+    - name: Install Git LFS
       run: |
-        set -euo pipefail
-
-        have() { command -v "$1" >/dev/null 2>&1; }
-
-        if have git-lfs; then
-          echo "git-lfs present: $(git lfs version)"
-        else
-          echo "git-lfs missing; attempting install..."
-
-          if have sudo && sudo -n true 2>/dev/null; then
-            if have apt; then
-              sudo apt update && sudo apt install -y git-lfs
-              sudo git lfs install --system
-            elif have yum; then
-              sudo yum install -y git-lfs || sudo dnf install -y git-lfs
-              sudo git lfs install --system
-            else
-              echo "No known package manager with sudo; falling back to user-space install."
-              FALLBACK=1
-            fi
-          else
-            FALLBACK=1
-          fi
-
-          if [ "${FALLBACK:-0}" = "1" ]; then
-            # User-space install (no sudo) for Linux x86_64/arm64
-            ver="3.5.1"  # pin a known-good version
-            arch="$(uname -m)"
-            case "$arch" in
-              x86_64) arch="amd64" ;;
-              aarch64|arm64) arch="arm64" ;;
-              *) echo "Unsupported arch: $arch"; exit 1 ;;
-            esac
-            url="https://github.com/git-lfs/git-lfs/releases/download/v${ver}/git-lfs-linux-${arch}-v${ver}.tar.gz"
-            echo "Downloading $url"
-            curl -L "$url" -o "$RUNNER_TEMP/git-lfs.tgz"
-            mkdir -p "$RUNNER_TEMP/git-lfs"
-            tar -C "$RUNNER_TEMP/git-lfs" -xzf "$RUNNER_TEMP/git-lfs.tgz"
-            mkdir -p "$HOME/.local/bin"
-            "$RUNNER_TEMP/git-lfs/install.sh" --skip-repo --bin "$HOME/.local/bin"
-            echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-          fi
-        fi
-
-        # Initialize LFS for this environment/repo
-        git lfs install --skip-repo
+        # For Ubuntu runners (most common)
+        sudo apt-get update
+        sudo apt-get install -y git-lfs
+        git lfs version
+        
+        # Alternative for other systems:
+        # curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | sudo bash
+        # sudo apt-get install git-lfs
 
     - name: Checkout with LFS
       uses: actions/checkout@v4
