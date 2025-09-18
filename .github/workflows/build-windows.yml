@@ -132,7 +132,7 @@ jobs:
         path: build/Windows/${{ env.ARTIFACT_NAME }}
         retention-days: 1
 
-    - name: Create archive for Telegram (Windows only)
+    - name: Create archive for Telegram
       if: success()
       run: |
         cd build/Windows
