@@ -20,7 +20,7 @@ concurrency:
 
 jobs:
   build-windows:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     env:
       UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
 
