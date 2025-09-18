@@ -59,9 +59,25 @@ public static class BuildScript
             options |= BuildOptions.AllowDebugging;
         }
 
-        Directory.CreateDirectory(buildPath);
-        BuildPipeline.BuildPlayer(scenes, Path.Combine(buildPath, PlayerSettings.productName + ".apk"),
-            BuildTarget.Android, options);
+        // Set the build target to Android
+        EditorUserBuildSettings.androidBuildSystem = AndroidBuildSystem.Gradle;
+
+        // For development builds, use APK
+        if (development)
+        {
+            EditorUserBuildSettings.buildAppBundle = false;
+            Directory.CreateDirectory(buildPath);
+            BuildPipeline.BuildPlayer(scenes, Path.Combine(buildPath, PlayerSettings.productName + ".apk"),
+                BuildTarget.Android, options);
+        }
+        // For release builds, use AAB
+        else
+        {
+            EditorUserBuildSettings.buildAppBundle = true;
+            Directory.CreateDirectory(buildPath);
+            BuildPipeline.BuildPlayer(scenes, Path.Combine(buildPath, PlayerSettings.productName + ".aab"),
+                BuildTarget.Android, options);
+        }
     }
 
     public static void BuildiOS()

@@ -34,6 +34,12 @@ jobs:
       with:
         lfs: true
         ref: ${{ github.event.inputs.branch || github.ref }}
+        
+    - name: Debug local actions
+      run: |
+        echo "Branch = ${{ github.event.inputs.branch || github.ref }}"
+        echo "Workspace = $GITHUB_WORKSPACE"
+        ls -R .github/actions || true
 
     - name: Parse project settings
       uses: ./.github/actions/parse-project-settings
@@ -45,11 +51,11 @@ jobs:
         if [[ "$CURRENT_REF" == *"/test" ]]; then
           echo "FLAVOR=dev" >> $GITHUB_ENV
           echo "DEVELOPMENT=true" >> $GITHUB_ENV
-          echo "ANDROID_APP_BUNDLE=false" >> $GITHUB_ENV
+          echo "ANDROID_EXPORT_TYPE=androidPackage" >> $GITHUB_ENV
         else
           echo "FLAVOR=release" >> $GITHUB_ENV
           echo "DEVELOPMENT=false" >> $GITHUB_ENV
-          echo "ANDROID_APP_BUNDLE=true" >> $GITHUB_ENV
+          echo "ANDROID_EXPORT_TYPE=androidAppBundle" >> $GITHUB_ENV
         fi
       shell: bash
 
@@ -74,6 +80,9 @@ jobs:
         status: start
         platform: Android
         flavor: ${{ env.FLAVOR }}
+        bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
+        chat_thread_id: ${{ secrets.TELEGRAM_CHAT_THREAD_ID }}
 
     - name: Cache Library
       uses: actions/cache@v3
@@ -91,7 +100,7 @@ jobs:
         targetPlatform: Android
         buildMethod: BuildScript.BuildAndroid
         customParameters: -development ${{ env.DEVELOPMENT }}
-        androidAppBundle: ${{ env.ANDROID_APP_BUNDLE }}
+        androidExportType: ${{ env.ANDROID_EXPORT_TYPE }}
         androidKeystoreName: ${{ steps.check_keystore.outputs.has_keystore == 'true' && 'key.keystore' || '' }}
         androidKeystoreBase64: ${{ steps.check_keystore.outputs.keystore_base64 }}
         androidKeystorePass: ${{ steps.check_keystore.outputs.has_keystore == 'true' && secrets.ANDROID_KEYSTORE_PASS || '' }}
@@ -103,6 +112,8 @@ jobs:
         chownFilesTo: ''
         allowDirtyBuild: true
       env:
+        UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+        UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
         UNITY_LICENSE: ${{ env.UNITY_LICENSE }}
 
     - name: Prepare Android artifacts
@@ -123,15 +134,59 @@ jobs:
           done
         fi
         
-        echo "ARTIFACT_NAME=${BASE_NAME}_Android" >> $GITHUB_ENV
+        # Create a directory for the artifact
+        ARTIFACT_NAME="${BASE_NAME}_Android"
+        mkdir -p "$ARTIFACT_NAME"
+        shopt -s dotglob
+        mv -- * "$ARTIFACT_NAME"/ 2>/dev/null || true
+        shopt -u dotglob
+        
+        echo "ARTIFACT_NAME=$ARTIFACT_NAME" >> $GITHUB_ENV
       shell: bash
 
     - name: Upload Android artifacts
       uses: actions/upload-artifact@v4
       with:
         name: ${{ env.ARTIFACT_NAME }}
-        path: build/Android
+        path: build/Android/${{ env.ARTIFACT_NAME }}
         retention-days: 1
+
+    - name: Create archive for Telegram
+      if: success()
+      run: |
+        cd build/Android
+        # Install p7zip if not available
+        sudo apt-get update && sudo apt-get install -y p7zip-full
+          
+        # Create split archive (45MB parts)
+        7z a -v45m "${{ env.ARTIFACT_NAME }}.7z" "${{ env.ARTIFACT_NAME }}"
+        echo "ARCHIVE_FILES=$(ls ${{ env.ARTIFACT_NAME }}.7z.* 2>/dev/null | tr '\n' ' ')" >> $GITHUB_ENV
+      shell: bash
+
+    - name: Generate success message
+      if: success()
+      run: |
+        # Source the message generator script
+        source .github/scripts/generate-telegram-message.sh
+          
+        # Generate the exact same message format
+        MESSAGE=$(generate_telegram_message "end" "success" "${{ env.DURATION }}" "${{ env.ARTIFACT_NAME }}" "Android" "${{ env.FLAVOR }}")
+          
+        # Store the message in environment variable
+        echo "TELEGRAM_MESSAGE<<EOF" >> $GITHUB_ENV
+        echo "$MESSAGE" >> $GITHUB_ENV
+        echo "EOF" >> $GITHUB_ENV
+      shell: bash
+
+    - name: Upload archive to Telegram
+      if: success() && env.ARCHIVE_FILES != ''
+      uses: ./.github/actions/telegram-sendfile
+      with:
+        files: build/Android/${{ env.ARTIFACT_NAME }}.7z.*
+        caption: ${{ env.TELEGRAM_MESSAGE }}
+        bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
+        chat_thread_id: ${{ secrets.TELEGRAM_CHAT_THREAD_ID }}
 
     - name: Calculate duration
       if: always()
@@ -142,7 +197,7 @@ jobs:
       shell: bash
 
     - name: Send build end notification
-      if: always()
+      if: always() && (failure() || cancelled())
       uses: ./.github/actions/telegram-notify
       with:
         status: end
@@ -151,41 +206,6 @@ jobs:
         artifact_name: ${{ env.ARTIFACT_NAME }}
         platform: Android
         flavor: ${{ env.FLAVOR }}
-
-  on-failure:
-    runs-on: self-hosted
-    needs: build-android
-    if: failure()
-
-    steps:
-    - name: Checkout with LFS
-      uses: actions/checkout@v4
-      with:
-        lfs: true
-
-    - name: Create failure log
-      run: |
-        LOG_FILE="build_fail_log.txt"
-        echo "Build failed at: $(date)" > $LOG_FILE
-        echo "Branch: ${{ github.ref }}" >> $LOG_FILE
-        echo "Commit: ${GITHUB_SHA:0:7}" >> $LOG_FILE
-        echo "Platform: Android" >> $LOG_FILE
-        echo "Flavor: ${{ needs.build-android.outputs.FLAVOR }}" >> $LOG_FILE
-        echo "" >> $LOG_FILE
-        echo "=== Last 1000 lines of Unity Editor.log ===" >> $LOG_FILE
-        tail -1000 ~/.config/unity3d/Editor.log >> $LOG_FILE 2>/dev/null || echo "Unity Editor log not found" >> $LOG_FILE
-        echo "FAILURE_LOG=$LOG_FILE" >> $GITHUB_ENV
-      shell: bash
-
-    - name: Upload failure log
-      uses: actions/upload-artifact@v4
-      with:
-        name: build_failure_log
-        path: ${{ env.FAILURE_LOG }}
-        retention-days: 1
-
-    - name: Send failure log to Telegram
-      uses: ./.github/actions/telegram-sendfile
-      with:
-        files: ${{ env.FAILURE_LOG }}
-        caption: "❌ Android build failed"
+        bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
+        chat_thread_id: ${{ secrets.TELEGRAM_CHAT_THREAD_ID }}
