@@ -112,7 +112,13 @@ jobs:
         echo "Signed Windows executable with provided certificate"
         rm cert.pfx
       shell: bash
+  
+  article:
+  runs-on: ubuntu-latest
+  needs: build-windows
+  if: success()
 
+  setps:
     - name: Prepare Windows artifact
       run: |
         cd build/Windows
@@ -131,7 +137,13 @@ jobs:
         name: ${{ env.ARTIFACT_NAME }}
         path: build/Windows/${{ env.ARTIFACT_NAME }}
         retention-days: 1
+        
+  telegram:
+  runs-on: ubuntu-latest
+  needs: article
+  if: success()
 
+  steps:
     - name: Create archive for Telegram (Windows only)
       if: success()
       run: |

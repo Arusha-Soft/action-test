@@ -36,6 +36,28 @@ runs:
         BOT_TOKEN: ${{ inputs.bot_token }}
         CHAT_ID: ${{ inputs.chat_id }}
 
+    - name: Debug file paths
+      if: steps.check_telegram.outputs.has_telegram == 'true'
+      run: |
+        echo "Files input: '$FILES'"
+        echo "Current directory: $(pwd)"
+        echo "Directory contents:"
+        ls -la
+        if [ -n "$FILES" ] && [ "$FILES" != "" ]; then
+          echo "Looking for files matching pattern..."
+          # Use find to locate files with proper pattern matching
+          found_files=$(find . -name "$FILES" -type f 2>/dev/null || true)
+          if [ -n "$found_files" ]; then
+            echo "Found files:"
+            echo "$found_files"
+          else
+            echo "No files found with pattern: $FILES"
+          fi
+        fi
+      shell: bash
+      env:
+        FILES: ${{ inputs.files }}
+
     - name: Send message or files to Telegram
       if: steps.check_telegram.outputs.has_telegram == 'true'
       run: |
@@ -51,19 +73,33 @@ runs:
           exit 0
         fi
         
-        # Create an array of files
-        IFS=' ' read -ra files <<< "$FILES"
+        # Find files using proper pattern matching
+        echo "Looking for files matching: $FILES"
         valid_files=()
         
-        # Check which files actually exist
-        for file in "${files[@]}"; do
+        # Use find to get files with proper glob pattern handling
+        while IFS= read -r -d '' file; do
           if [ -f "$file" ]; then
             valid_files+=("$file")
             echo "Found valid file: $file"
-          else
-            echo "File not found: $file"
           fi
-        done
+        done < <(find . -name "$FILES" -type f -print0 2>/dev/null || true)
+        
+        # Alternative approach if find doesn't work
+        if [ ${#valid_files[@]} -eq 0 ]; then
+          echo "Trying alternative file discovery method..."
+          # Use shell glob expansion
+          shopt -s nullglob
+          for file in $FILES; do
+            if [ -f "$file" ]; then
+              valid_files+=("$file")
+              echo "Found valid file (alternative): $file"
+            fi
+          done
+          shopt -u nullglob
+        fi
+        
+        echo "Total valid files found: ${#valid_files[@]}"
         
         if [ ${#valid_files[@]} -eq 0 ]; then
           echo "No valid files found to upload, sending message instead..."
@@ -96,18 +132,21 @@ runs:
           
           for file in "${valid_files[@]}"; do
             filename=$(basename "$file")
+            # Escape special characters in filename for JSON
+            filename_escaped=$(echo "$filename" | sed 's/"/\\"/g')
+            
             if [ "$first" = true ]; then
               # First file gets the caption
-              media_json+="{\"type\": \"document\", \"media\": \"attach://$filename\", \"caption\": \"$CAPTION\", \"parse_mode\": \"HTML\"}"
+              media_json+="{\"type\": \"document\", \"media\": \"attach://$filename_escaped\", \"caption\": \"$CAPTION\", \"parse_mode\": \"HTML\"}"
               first=false
             else
-              media_json+=",{\"type\": \"document\", \"media\": \"attach://$filename\"}"
+              media_json+=",{\"type\": \"document\", \"media\": \"attach://$filename_escaped\"}"
             fi
           done
           
           media_json+=']'
           
-          echo "Media JSON: $media_json"
+          echo "Media JSON prepared"
           
           # Build the curl command with all files
           curl_cmd="curl -s -X POST \"https://api.telegram.org/bot$BOT_TOKEN/sendMediaGroup\" \
@@ -121,8 +160,10 @@ runs:
             curl_cmd+=" -F \"$filename=@$file\""
           done
           
-          # Execute the command
-          eval $curl_cmd
+          echo "Executing curl command..."
+          # Execute the command and capture output
+          result=$(eval $curl_cmd 2>&1)
+          echo "Curl result: $result"
         fi
         
         # Check if upload was successful
@@ -130,6 +171,18 @@ runs:
           echo "Files uploaded successfully!"
         else
           echo "Error uploading files."
+          # Try fallback to individual file uploads
+          echo "Trying fallback: uploading files individually..."
+          for file in "${valid_files[@]}"; do
+            echo "Uploading $file individually..."
+            curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendDocument" \
+              -F "chat_id=$CHAT_ID" \
+              -F "message_thread_id=$CHAT_THREAD_ID" \
+              -F "document=@$file" \
+              -F "caption=$(if [ "$file" = "${valid_files[0]}" ]; then echo "$CAPTION"; fi)" \
+              -F "parse_mode=HTML"
+            sleep 1
+          done
         fi
       shell: bash
       env:
