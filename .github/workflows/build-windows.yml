@@ -118,7 +118,7 @@ jobs:
     needs: build-windows
     if: success()
 
-    setps:
+    steps:
       - name: Prepare Windows artifact
         run: |
           cd build/Windows
