@@ -112,31 +112,25 @@ jobs:
         echo "Signed Windows executable with provided certificate"
         rm cert.pfx
       shell: bash
-  
-  article:
-    runs-on: ubuntu-latest
-    needs: build-windows
-    if: success()
 
-    steps:
-      - name: Prepare Windows artifact
-        run: |
-          cd build/Windows
-          ARTIFACT_NAME="${{ steps.project_settings.outputs.base_filename }}_Windows"
-          # Move contents to a properly named directory
-          mkdir -p "$ARTIFACT_NAME"
-          shopt -s dotglob
-          mv -- * "$ARTIFACT_NAME"/ 2>/dev/null || true
-          shopt -u dotglob
-          echo "ARTIFACT_NAME=$ARTIFACT_NAME" >> $GITHUB_ENV
-        shell: bash
+    - name: Prepare Windows artifact
+      run: |
+        cd build/Windows
+        ARTIFACT_NAME="${{ steps.project_settings.outputs.base_filename }}_Windows"
+        # Move contents to a properly named directory
+        mkdir -p "$ARTIFACT_NAME"
+        shopt -s dotglob
+        mv -- * "$ARTIFACT_NAME"/ 2>/dev/null || true
+        shopt -u dotglob
+        echo "ARTIFACT_NAME=$ARTIFACT_NAME" >> $GITHUB_ENV
+      shell: bash
 
-      - name: Upload Windows artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ env.ARTIFACT_NAME }}
-          path: build/Windows/${{ env.ARTIFACT_NAME }}
-          retention-days: 1
+    - name: Upload Windows artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ env.ARTIFACT_NAME }}
+        path: build/Windows/${{ env.ARTIFACT_NAME }}
+        retention-days: 1
 
   telegram:
     runs-on: ubuntu-latest
