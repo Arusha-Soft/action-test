@@ -29,17 +29,6 @@ jobs:
       run: echo "START_TIME=$(date +%s)" >> $GITHUB_ENV
       shell: bash
 
-    - name: Install Git LFS
-      run: |
-        # For Ubuntu runners (most common)
-        sudo apt-get update
-        sudo apt-get install -y git-lfs
-        git lfs version
-        
-        # Alternative for other systems:
-        # curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | sudo bash
-        # sudo apt-get install git-lfs
-
     - name: Checkout with LFS
       uses: actions/checkout@v4
       with:
