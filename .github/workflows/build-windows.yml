@@ -144,17 +144,27 @@ jobs:
         echo "ARCHIVE_FILES=$(ls ${{ env.ARTIFACT_NAME }}.7z.* 2>/dev/null | tr '\n' ' ')" >> $GITHUB_ENV
       shell: bash
 
+    - name: Generate success message
+      if: success()
+      run: |
+        # Source the message generator script
+        source .github/scripts/generate-telegram-message.sh
+        
+        # Generate the exact same message format
+        MESSAGE=$(generate_telegram_message "end" "success" "${{ env.DURATION }}" "${{ env.ARTIFACT_NAME }}" "Windows" "${{ env.FLAVOR }}")
+        
+        # Store the message in environment variable
+        echo "TELEGRAM_MESSAGE<<EOF" >> $GITHUB_ENV
+        echo "$MESSAGE" >> $GITHUB_ENV
+        echo "EOF" >> $GITHUB_ENV
+      shell: bash
+
     - name: Upload archive to Telegram
       if: success() && env.ARCHIVE_FILES != ''
-      uses: ./.github/actions/telegram-notify
+      uses: ./.github/actions/telegram-sendfile
       with:
         files: build/Windows/${{ env.ARTIFACT_NAME }}.7z.*
-        status: end
-        result: ${{ job.status }}
-        duration: ${{ env.DURATION }}
-        artifact_name: ${{ env.ARTIFACT_NAME }}
-        platform: Windows
-        flavor: ${{ env.FLAVOR }}
+        caption: ${{ env.TELEGRAM_MESSAGE }}
         bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
         chat_thread_id: ${{ secrets.TELEGRAM_CHAT_THREAD_ID }}
@@ -168,7 +178,7 @@ jobs:
       shell: bash
 
     - name: Send build end notification
-      if: failure()
+      if: always() && (failure() || cancelled())
       uses: ./.github/actions/telegram-notify
       with:
         status: end
@@ -180,41 +190,3 @@ jobs:
         bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
         chat_thread_id: ${{ secrets.TELEGRAM_CHAT_THREAD_ID }}
-
-  on-failure:
-    runs-on: ubuntu-latest
-    needs: build-windows
-    if: failure()
-
-    steps:
-    - name: Checkout with LFS
-      uses: actions/checkout@v4
-      with:
-        lfs: true
-
-    - name: Create failure log
-      run: |
-        LOG_FILE="build_fail_log.txt"
-        echo "Build failed at: $(date)" > $LOG_FILE
-        echo "Branch: ${{ github.ref }}" >> $LOG_FILE
-        echo "Commit: ${GITHUB_SHA:0:7}" >> $LOG_FILE
-        echo "Platform: Windows" >> $LOG_FILE
-        echo "Flavor: ${{ needs.build-windows.outputs.FLAVOR }}" >> $LOG_FILE
-        echo "" >> $LOG_FILE
-        echo "=== Last 1000 lines of Unity Editor.log ===" >> $LOG_FILE
-        tail -1000 ~/.config/unity3d/Editor.log >> $LOG_FILE 2>/dev/null || echo "Unity Editor log not found" >> $LOG_FILE
-        echo "FAILURE_LOG=$LOG_FILE" >> $GITHUB_ENV
-      shell: bash
-
-    - name: Upload failure log
-      uses: actions/upload-artifact@v4
-      with:
-        name: build_failure_log
-        path: ${{ env.FAILURE_LOG }}
-        retention-days: 1
-
-    - name: Send failure log to Telegram
-      uses: ./.github/actions/telegram-sendfile
-      with:
-        files: ${{ env.FAILURE_LOG }}
-        caption: "❌ Windows build failed"

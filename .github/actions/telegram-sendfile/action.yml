@@ -1,11 +1,12 @@
 name: 'Telegram File Upload'
-description: 'Upload files to Telegram'
+description: 'Upload files to Telegram with caption or send message only'
 inputs:
   files:
     description: 'File pattern to upload'
-    required: true
+    required: false
+    default: ''
   caption:
-    description: 'File caption'
+    description: 'File caption or message text'
     required: false
     default: ''
   bot_token:
@@ -34,51 +35,89 @@ runs:
         fi
       shell: bash
 
-    - name: Upload files to Telegram
+    - name: Send message or files to Telegram
       if: steps.check_telegram.outputs.has_telegram == 'true'
       run: |
-        # Create an array of files
-        files=(${{ inputs.files }})
-        media_parts=()
-        
-        # Build media JSON for multiple documents
-        for file in "${files[@]}"; do
-          if [ -f "$file" ]; then
-            echo "Adding file: $file"
-            # For each file after the first, we need to add as a separate media item
-            media_parts+=("{\"type\": \"document\", \"media\": \"attach://$(basename "$file")\"}")
-          fi
-        done
-        
-        if [ ${#media_parts[@]} -eq 0 ]; then
-          echo "No valid files found to upload."
+        # If no files provided, send message only
+        if [ -z "${{ inputs.files }}" ] || [ "${{ inputs.files }}" = "" ]; then
+          echo "Sending message only..."
+          curl -s -X POST "https://api.telegram.org/bot${{ inputs.bot_token }}/sendMessage" \
+            -d chat_id="${{ inputs.chat_id }}" \
+            -d message_thread_id="${{ inputs.chat_thread_id }}" \
+            --data-urlencode text="${{ inputs.caption }}" \
+            -d parse_mode="HTML" \
+            -d disable_web_page_preview=true
           exit 0
         fi
         
-        # Join media parts with commas
-        media_json="[$(IFS=,; echo "${media_parts[*]}")]"
+        # Create an array of files
+        files=(${{ inputs.files }})
         
-        # Build curl command with all files
-        curl_cmd=(curl -s -X POST "https://api.telegram.org/bot${{ inputs.bot_token }}/sendMediaGroup")
-        curl_cmd+=(-H "Content-Type: multipart/form-data")
-        curl_cmd+=(-F "chat_id=${{ inputs.chat_id }}")
-        curl_cmd+=(-F "message_thread_id=${{ inputs.chat_thread_id }}")
-        curl_cmd+=(-F "media='$media_json'")
+        if [ ${#files[@]} -eq 0 ]; then
+          echo "No valid files found to upload, sending message instead..."
+          curl -s -X POST "https://api.telegram.org/bot${{ inputs.bot_token }}/sendMessage" \
+            -d chat_id="${{ inputs.chat_id }}" \
+            -d message_thread_id="${{ inputs.chat_thread_id }}" \
+            --data-urlencode text="${{ inputs.caption }}" \
+            -d parse_mode="HTML" \
+            -d disable_web_page_preview=true
+          exit 0
+        fi
         
-        # Add each file as attachment
-        for file in "${files[@]}"; do
-          if [ -f "$file" ]; then
-            curl_cmd+=(-F "$(basename "$file")=@$file")
-          fi
-        done
+        # If only one file, use sendDocument with caption
+        if [ ${#files[@]} -eq 1 ]; then
+          echo "Uploading single file with caption..."
+          curl -s -X POST "https://api.telegram.org/bot${{ inputs.bot_token }}/sendDocument" \
+            -F "chat_id=${{ inputs.chat_id }}" \
+            -F "message_thread_id=${{ inputs.chat_thread_id }}" \
+            -F "document=@${files[0]}" \
+            -F "caption=${{ inputs.caption }}" \
+            -F "parse_mode=HTML"
         
-        echo "Uploading ${#media_parts[@]} files in one message..."
-        "${curl_cmd[@]}"
+        # If multiple files, use sendMediaGroup with caption on first file
+        else
+          echo "Uploading ${#files[@]} files in one message..."
+          
+          # Build media JSON array
+          media_json='['
+          first=true
+          
+          for file in "${files[@]}"; do
+            if [ -f "$file" ]; then
+              if [ "$first" = true ]; then
+                # First file gets the caption
+                media_json+='{"type": "document", "media": "attach://'$(basename "$file")'", "caption": "'"${{ inputs.caption }}"'", "parse_mode": "HTML"}'
+                first=false
+              else
+                media_json+=',{"type": "document", "media": "attach://'$(basename "$file")'"}'
+              fi
+            fi
+          done
+          
+          media_json+=']'
+          
+          # Build curl command
+          curl_cmd=(curl -s -X POST "https://api.telegram.org/bot${{ inputs.bot_token }}/sendMediaGroup")
+          curl_cmd+=(-H "Content-Type: multipart/form-data")
+          curl_cmd+=(-F "chat_id=${{ inputs.chat_id }}")
+          curl_cmd+=(-F "message_thread_id=${{ inputs.chat_thread_id }}")
+          curl_cmd+=(-F "media='$media_json'")
+          
+          # Add each file as attachment
+          for file in "${files[@]}"; do
+            if [ -f "$file" ]; then
+              curl_cmd+=(-F "$(basename "$file")=@$file")
+            fi
+          done
+          
+          # Execute the command
+          "${curl_cmd[@]}"
+        fi
         
         # Check if upload was successful
         if [ $? -eq 0 ]; then
-          echo "Files uploaded successfully in one message!"
+          echo "Files uploaded successfully!"
         else
-          echo "Error uploading files as media group."
+          echo "Error uploading files."
         fi
       shell: bash
