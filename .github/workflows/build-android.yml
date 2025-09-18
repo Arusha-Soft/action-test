@@ -51,11 +51,11 @@ jobs:
         if [[ "$CURRENT_REF" == *"/test" ]]; then
           echo "FLAVOR=dev" >> $GITHUB_ENV
           echo "DEVELOPMENT=true" >> $GITHUB_ENV
-          echo "ANDROID_APP_BUNDLE=false" >> $GITHUB_ENV
+          echo "ANDROID_EXPORT_TYPE=androidPackage" >> $GITHUB_ENV
         else
           echo "FLAVOR=release" >> $GITHUB_ENV
           echo "DEVELOPMENT=false" >> $GITHUB_ENV
-          echo "ANDROID_APP_BUNDLE=true" >> $GITHUB_ENV
+          echo "ANDROID_EXPORT_TYPE=androidAppBundle" >> $GITHUB_ENV
         fi
       shell: bash
 
@@ -100,7 +100,7 @@ jobs:
         targetPlatform: Android
         buildMethod: BuildScript.BuildAndroid
         customParameters: -development ${{ env.DEVELOPMENT }}
-        androidAppBundle: ${{ env.ANDROID_APP_BUNDLE }}
+        androidExportType: ${{ env.ANDROID_EXPORT_TYPE }}
         androidKeystoreName: ${{ steps.check_keystore.outputs.has_keystore == 'true' && 'key.keystore' || '' }}
         androidKeystoreBase64: ${{ steps.check_keystore.outputs.keystore_base64 }}
         androidKeystorePass: ${{ steps.check_keystore.outputs.has_keystore == 'true' && secrets.ANDROID_KEYSTORE_PASS || '' }}
