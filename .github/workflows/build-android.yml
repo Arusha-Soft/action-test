@@ -116,6 +116,9 @@ jobs:
         restore-keys: |
           unity-${{ steps.project_settings.outputs.unity_version }}-android-
 
+    - name: Free disk space
+      uses: jlumbroso/free-disk-space@v1.3.1
+
     - name: Build Android
       uses: game-ci/unity-builder@v4
       id: unity-builder
@@ -194,7 +197,7 @@ jobs:
         DURATION=$((END_TIME - ${{ env.START_TIME }}))
         echo "DURATION=$(printf '%02d:%02d' $(($DURATION/60)) $(($DURATION%60)))" >> $GITHUB_ENV
       shell: bash
-      
+
     - name: Generate success message
       if: success()
       run: |
