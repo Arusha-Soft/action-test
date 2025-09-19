@@ -63,12 +63,13 @@ runs:
         # Human-readable status line + emoji
         if [ "${{ inputs.status }}" = "start" ]; then
           STATUS="🚀 Started"
+        elif [ "${{ inputs.status }}" = "queued" ]; then
+          STATUS="🕓 Queued"
         else
           case "${{ inputs.result }}" in
             success)   STATUS="✅ Success" ;;
             failure)   STATUS="❌ Failed" ;;
             cancelled) STATUS="⏹️ Cancelled" ;;
-            queued)    STATUS="🕓 Queued" ;; 
             *)         STATUS="ℹ️ Info" ;;
           esac
         fi
@@ -87,7 +88,7 @@ runs:
         📊 Build Status: ${STATUS}
         ============================="
 
-        if [ "${{ inputs.status }}" != "start" ]; then
+        if [ "${{ inputs.status }}" != "start" ] && [ "${{ inputs.status }}" != "queued" ]; then
           MESSAGE="${MESSAGE}
           ⏱️ Duration:   ${{ inputs.duration }}
           📎 Artifact:   ${{ inputs.artifact_name }}"
