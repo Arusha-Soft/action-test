@@ -64,13 +64,16 @@ runs:
         if [ "${{ inputs.status }}" = "start" ]; then
           STATUS="🚀 Started"
         else
-          case "${{ inputs.result }}" in
-            success)   STATUS="✅ Success" ;;
-            failure)   STATUS="❌ Failed" ;;
-            cancelled) STATUS="⏹️ Cancelled" ;;
-            queued)    STATUS="🕓 Queued" ;; 
-            *)         STATUS="ℹ️ Info" ;;
-          esac
+          if[ ${{inputs.status}}" = "queued"]; then
+            STATUS="🕓 Queued"
+          else
+            case "${{ inputs.result }}" in
+              success)   STATUS="✅ Success" ;;
+              failure)   STATUS="❌ Failed" ;;
+              cancelled) STATUS="⏹️ Cancelled" ;;
+              *)         STATUS="ℹ️ Info" ;;
+            esac
+            fi
         fi
 
         MESSAGE="[🎮 Project: ${TITLE}]
@@ -87,7 +90,7 @@ runs:
         📊 Build Status: ${STATUS}
         ============================="
 
-        if [ "${{ inputs.status }}" != "start" ]; then
+        if [ "${{ inputs.status }}" != "queued" ] && [ "${{ inputs.status }}" != "start" ]; then
           MESSAGE="${MESSAGE}
           ⏱️ Duration:   ${{ inputs.duration }}
           📎 Artifact:   ${{ inputs.artifact_name }}"
