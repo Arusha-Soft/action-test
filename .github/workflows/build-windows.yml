@@ -44,6 +44,7 @@ jobs:
 
   build-windows:
     runs-on: self-hosted
+    needs: queue-notify
     env:
       UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
 
