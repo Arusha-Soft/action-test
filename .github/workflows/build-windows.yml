@@ -169,6 +169,14 @@ jobs:
         echo "ARCHIVE_FILES=$(ls ${{ env.ARTIFACT_NAME }}.7z.* 2>/dev/null | tr '\n' ' ')" >> $GITHUB_ENV
       shell: bash
 
+    - name: Calculate duration
+      if: always()
+      run: |
+        END_TIME=$(date +%s)
+        DURATION=$((END_TIME - ${{ env.START_TIME }}))
+        echo "DURATION=$(printf '%02d:%02d' $(($DURATION/60)) $(($DURATION%60)))" >> $GITHUB_ENV
+      shell: bash
+
     - name: Generate success message
       if: success()
       run: |
@@ -193,14 +201,6 @@ jobs:
         bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
         chat_thread_id: ${{ secrets.TELEGRAM_CHAT_THREAD_ID }}
-
-    - name: Calculate duration
-      if: always()
-      run: |
-        END_TIME=$(date +%s)
-        DURATION=$((END_TIME - ${{ env.START_TIME }}))
-        echo "DURATION=$(printf '%02d:%02d' $(($DURATION/60)) $(($DURATION%60)))" >> $GITHUB_ENV
-      shell: bash
 
     - name: Send build end notification
       if: always() && (failure() || cancelled())
