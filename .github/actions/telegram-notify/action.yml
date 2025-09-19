@@ -63,6 +63,8 @@ runs:
         # Human-readable status line + emoji
         if [ "${{ inputs.status }}" = "start" ]; then
           STATUS="🚀 Started"
+        elif [ "${{ inputs.status }}" = "queued" ]; then
+          STATUS="🕓 Queued"
         else
           case "${{ inputs.result }}" in
             success)   STATUS="✅ Success" ;;
@@ -82,9 +84,11 @@ runs:
         🔑 Commit:     ${GITHUB_SHA:0:7}
         👤 By:         ${{ github.actor }}
 
-        📊 Build Status: ${STATUS}"
+        =============================
+        📊 Build Status: ${STATUS}
+        ============================="
 
-        if [ "${{ inputs.status }}" != "start" ]; then
+        if [ "${{ inputs.status }}" != "start" ] && [ "${{ inputs.status }}" != "queued" ]; then
           MESSAGE="${MESSAGE}
           ⏱️ Duration:   ${{ inputs.duration }}
           📎 Artifact:   ${{ inputs.artifact_name }}"
