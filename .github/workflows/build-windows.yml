@@ -27,6 +27,7 @@ jobs:
         with:
           lfs: true
           ref: ${{ github.event.inputs.branch || github.ref }}
+          
       - name: Debug local actions
         run: |
           echo "Branch = ${{ github.event.inputs.branch || github.ref }}"
