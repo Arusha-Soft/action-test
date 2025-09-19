@@ -22,7 +22,7 @@ jobs:
   queue-notify:
     runs-on: ubuntu-latest
 
-    setps:
+    steps:
       - name: Notify build queued
         uses: ./.github/actions/telegram-notify
         with:
