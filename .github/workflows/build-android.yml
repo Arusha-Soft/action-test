@@ -21,13 +21,23 @@ concurrency:
 jobs:
   queue-notify:
     runs-on: ubuntu-latest
-
     steps:
+      - name: Checkout with LFS
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+          ref: ${{ github.event.inputs.branch || github.ref }}
+      - name: Debug local actions
+        run: |
+          echo "Branch = ${{ github.event.inputs.branch || github.ref }}"
+          echo "Workspace = $GITHUB_WORKSPACE"
+          ls -R .github/actions || true
+
       - name: Notify build queued
         uses: ./.github/actions/telegram-notify
         with:
           status: queued
-          platform: Android
+          platform: Anroid
           bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
           chat_thread_id: ${{ secrets.TELEGRAM_CHAT_THREAD_ID }}

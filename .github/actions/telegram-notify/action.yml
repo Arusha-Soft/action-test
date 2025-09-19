@@ -84,8 +84,8 @@ runs:
         👤 By:         ${{ github.actor }}
 
         =============================
-        📊 Build Status: ${STATUS}"
-        =============================
+        📊 Build Status: ${STATUS}
+        ============================="
 
         if [ "${{ inputs.status }}" != "start" ]; then
           MESSAGE="${MESSAGE}
