@@ -19,8 +19,21 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  queue-notify:
+    runs-on: ubuntu-latest
+
+    setps:
+      - name: Notify build queued
+        uses: ./.github/actions/telegram-notify
+        with:
+          status: queued
+          platform: Windows
+          bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
+          chat_thread_id: ${{ secrets.TELEGRAM_CHAT_THREAD_ID }}
+
   build-windows:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     env:
       UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
 

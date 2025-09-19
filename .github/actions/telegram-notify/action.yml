@@ -68,6 +68,7 @@ runs:
             success)   STATUS="✅ Success" ;;
             failure)   STATUS="❌ Failed" ;;
             cancelled) STATUS="⏹️ Cancelled" ;;
+            queued)    STATUS="🕓 Queued" ;; 
             *)         STATUS="ℹ️ Info" ;;
           esac
         fi
@@ -82,7 +83,9 @@ runs:
         🔑 Commit:     ${GITHUB_SHA:0:7}
         👤 By:         ${{ github.actor }}
 
+        =============================
         📊 Build Status: ${STATUS}"
+        =============================
 
         if [ "${{ inputs.status }}" != "start" ]; then
           MESSAGE="${MESSAGE}
