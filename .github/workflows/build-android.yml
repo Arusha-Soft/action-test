@@ -33,11 +33,24 @@ jobs:
           echo "Workspace = $GITHUB_WORKSPACE"
           ls -R .github/actions || true
 
+      - name: Determine build flavor
+        run: |
+          CURRENT_REF="${{ github.event.inputs.branch || github.ref }}"
+          if [[ "$CURRENT_REF" == *"/test" ]]; then
+            echo "FLAVOR=dev" >> $GITHUB_ENV
+            echo "DEVELOPMENT=true" >> $GITHUB_ENV
+          else
+            echo "FLAVOR=release" >> $GITHUB_ENV
+            echo "DEVELOPMENT=false" >> $GITHUB_ENV
+          fi
+        shell: bash
+
       - name: Notify build queued
         uses: ./.github/actions/telegram-notify
         with:
           status: queued
           platform: Anroid
+          flavor: ${{ env.FLAVOR }}
           bot_server_ip: ${{ secrets.TELEGRAM_BOT_SERVER_IP }}
           bot_server_port: ${{ secrets.TELEGRAM_BOT_SERVER_PORT }}
           bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
