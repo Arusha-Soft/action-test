@@ -47,11 +47,48 @@ public static class BuildScript
     public static void BuildAndroid()
     {
         var args = Environment.GetCommandLineArgs();
-        var development = Array.Exists(args, arg => arg == "-development");
 
-        var scenes = EditorBuildSettings.scenes;
-        var buildPath = "build/Android";
+        // Helpers to read flags like: "-development true" / "-aab false"
+        bool GetBoolArg(string name, bool defaultValue = false)
+        {
+            // support "-name value" and "-name=value"
+            var idx = Array.FindIndex(args, a => a.Equals(name, StringComparison.OrdinalIgnoreCase) ||
+                                                 a.StartsWith(name + "=", StringComparison.OrdinalIgnoreCase));
+            if (idx < 0) return defaultValue;
 
+            // Case: "-name=value"
+            var eq = args[idx].IndexOf('=');
+            if (eq >= 0)
+            {
+                var v = args[idx].Substring(eq + 1);
+                return IsTrue(v, defaultValue);
+            }
+
+            // Case: "-name value"
+            if (idx + 1 < args.Length) return IsTrue(args[idx + 1], defaultValue);
+
+            // If flag present but no value, treat as true (common CLI behavior)
+            return true;
+        }
+
+        bool IsTrue(string v, bool fallback)
+        {
+            if (string.IsNullOrEmpty(v)) return fallback;
+            v = v.Trim().ToLowerInvariant();
+            return v is "1" or "true" or "yes" or "y" or "on";
+        }
+
+        // Parse inputs
+        var development = GetBoolArg("-development", false);
+        // Optional manual override, e.g. pass "-aab true" to force .aab even on dev,
+        // or "-aab false" to force .apk on release.
+        var aabOverride = (bool?)null;
+        if (Array.Exists(args, a => a.StartsWith("-aab", StringComparison.OrdinalIgnoreCase)))
+            aabOverride = GetBoolArg("-aab", true);
+
+        var makeAab = aabOverride ?? !development; // default: dev=APK, release=AAB
+
+        // Build options
         var options = BuildOptions.None;
         if (development)
         {
@@ -59,25 +96,33 @@ public static class BuildScript
             options |= BuildOptions.AllowDebugging;
         }
 
-        // Set the build target to Android
+        // Ensure Android/Gradle & correct export mode
         EditorUserBuildSettings.androidBuildSystem = AndroidBuildSystem.Gradle;
+        EditorUserBuildSettings.exportAsGoogleAndroidProject = false; // direct APK/AAB artifact
+        EditorUserBuildSettings.buildAppBundle = makeAab;             // true => .aab, false => .apk
 
-        // For development builds, use APK
-        if (development)
+        // Paths
+        var buildDir = "build/Android";
+        Directory.CreateDirectory(buildDir);
+        var ext = makeAab ? ".aab" : ".apk";
+        var outPath = Path.Combine(buildDir, PlayerSettings.productName + ext);
+
+        // Scenes to include (enabled only)
+        var scenes = EditorBuildSettings.scenes
+            .Where(s => s.enabled)
+            .Select(s => s.path)
+            .ToArray();
+
+        var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
         {
-            EditorUserBuildSettings.buildAppBundle = false;
-            Directory.CreateDirectory(buildPath);
-            BuildPipeline.BuildPlayer(scenes, Path.Combine(buildPath, PlayerSettings.productName + ".apk"),
-                BuildTarget.Android, options);
-        }
-        // For release builds, use AAB
-        else
-        {
-            EditorUserBuildSettings.buildAppBundle = true;
-            Directory.CreateDirectory(buildPath);
-            BuildPipeline.BuildPlayer(scenes, Path.Combine(buildPath, PlayerSettings.productName + ".aab"),
-                BuildTarget.Android, options);
-        }
+            scenes = scenes,
+            target = BuildTarget.Android,
+            locationPathName = outPath,
+            options = options
+        });
+
+        if (report.summary.result != UnityEditor.Build.Reporting.BuildResult.Succeeded)
+            throw new Exception("Android build failed: " + report.summary.result);
     }
 
     public static void BuildiOS()

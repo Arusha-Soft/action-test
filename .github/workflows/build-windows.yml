@@ -88,9 +88,11 @@ jobs:
       run: |
         CURRENT_REF="${{ github.event.inputs.branch || github.ref }}"
         if [[ "$CURRENT_REF" == *"/test" ]]; then
+          echo "flavor=dev"
           echo "FLAVOR=dev" >> $GITHUB_ENV
           echo "DEVELOPMENT=true" >> $GITHUB_ENV
         else
+          echo "flavor=dev"
           echo "FLAVOR=release" >> $GITHUB_ENV
           echo "DEVELOPMENT=false" >> $GITHUB_ENV
         fi

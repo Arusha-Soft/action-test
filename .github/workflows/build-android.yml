@@ -88,10 +88,12 @@ jobs:
       run: |
         CURRENT_REF="${{ github.event.inputs.branch || github.ref }}"
         if [[ "$CURRENT_REF" == *"/test" ]]; then
+          echo "flavor=dev"
           echo "FLAVOR=dev" >> $GITHUB_ENV
           echo "DEVELOPMENT=true" >> $GITHUB_ENV
           echo "ANDROID_EXPORT_TYPE=androidPackage" >> $GITHUB_ENV
         else
+        echo "flavor=release"
           echo "FLAVOR=release" >> $GITHUB_ENV
           echo "DEVELOPMENT=false" >> $GITHUB_ENV
           echo "ANDROID_EXPORT_TYPE=androidAppBundle" >> $GITHUB_ENV
