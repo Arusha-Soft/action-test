@@ -105,7 +105,7 @@ runs:
         echo "$MESSAGE"
         echo "---- MESSAGE END ----"
 
-        curl -s "http://91.107.172.246:8081/bot${{ inputs.bot_token }}/sendMessage" \
+        curl -s "http://${{secrets.TELEGRAM_BOT_SERVER_IP}}:${{secrets.TELEGRAM.BOT_SERVER_PORT}}/bot${{ inputs.bot_token }}/sendMessage" \
           -d chat_id="${{ inputs.chat_id }}" \
           -d message_thread_id="${{ inputs.chat_thread_id }}" \
           --data-urlencode text="$MESSAGE" \
