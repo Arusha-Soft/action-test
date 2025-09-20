@@ -38,6 +38,8 @@ jobs:
         with:
           status: queued
           platform: Anroid
+          bot_server_ip: ${{ secrets.TELEGRAM_BOT_SERVER_IP }}
+          bot_server_port: ${{ secrets.TELEGRAM_BOT_SERVER_PORT }}
           bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
           chat_thread_id: ${{ secrets.TELEGRAM_CHAT_THREAD_ID }}
@@ -104,6 +106,8 @@ jobs:
         status: start
         platform: Android
         flavor: ${{ env.FLAVOR }}
+        bot_server_ip: ${{ secrets.TELEGRAM_BOT_SERVER_IP }}
+        bot_server_port: ${{ secrets.TELEGRAM_BOT_SERVER_PORT }}
         bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
         chat_thread_id: ${{ secrets.TELEGRAM_CHAT_THREAD_ID }}
@@ -224,6 +228,8 @@ jobs:
       with:
         files: build/Android/${{ env.ARTIFACT_NAME }}.7z.*
         caption: ${{ env.TELEGRAM_MESSAGE }}
+        bot_server_ip: ${{ secrets.TELEGRAM_BOT_SERVER_IP }}
+        bot_server_port: ${{ secrets.TELEGRAM_BOT_SERVER_PORT }}
         bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
         chat_thread_id: ${{ secrets.TELEGRAM_CHAT_THREAD_ID }}
@@ -238,6 +244,8 @@ jobs:
         artifact_name: ${{ env.ARTIFACT_NAME }}
         platform: Android
         flavor: ${{ env.FLAVOR }}
+        bot_server_ip: ${{ secrets.TELEGRAM_BOT_SERVER_IP }}
+        bot_server_port: ${{ secrets.TELEGRAM_BOT_SERVER_PORT }}
         bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
         chat_thread_id: ${{ secrets.TELEGRAM_CHAT_THREAD_ID }}
