@@ -168,6 +168,11 @@ jobs:
     - name: Prepare Android artifacts
       run: |
         cd build/Android
+        
+        echo "=== Listing contents of build/Android BEFORE renaming ==="
+        ls -lah
+        echo "========================================================="
+
         BASE_NAME="${{ steps.project_settings.outputs.base_filename }}"
         
         # Rename APK/AAB files
