@@ -40,6 +40,8 @@ jobs:
           status: queued
           platform: Windows
           bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          bot_server_ip: ${{ secrets.TELEGRAM_BOT_SERVER_IP }}
+          bot_server_port: ${{ secrets.TELEGRAM_BOT_SERVER_PORT }}
           chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
           chat_thread_id: ${{ secrets.TELEGRAM_CHAT_THREAD_ID }}
 

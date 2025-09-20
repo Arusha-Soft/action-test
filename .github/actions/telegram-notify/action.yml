@@ -22,6 +22,14 @@ inputs:
   flavor:
     description: 'Build flavor (dev/release)'
     required: true
+  bot_server_ip:
+    description: 'Telegram Bot Server IP'
+    required: true
+    default: ''
+  bot_server_port:
+    description: 'Telegram Bot Server Port'
+    required: true
+    default: '8081'
   bot_token:
     description: 'Telegram Bot Token'
     required: true
@@ -105,7 +113,7 @@ runs:
         echo "$MESSAGE"
         echo "---- MESSAGE END ----"
 
-        curl -s "http://${{secrets.TELEGRAM_BOT_SERVER_IP}}:${{secrets.TELEGRAM.BOT_SERVER_PORT}}/bot${{ inputs.bot_token }}/sendMessage" \
+        curl -s "http://${{inputs.bot_server_ip}}:${{inputs.bot_server_port}}/bot${{ inputs.bot_token }}/sendMessage" \
           -d chat_id="${{ inputs.chat_id }}" \
           -d message_thread_id="${{ inputs.chat_thread_id }}" \
           --data-urlencode text="$MESSAGE" \
