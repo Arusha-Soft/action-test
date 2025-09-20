@@ -143,6 +143,11 @@ jobs:
         UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
         UNITY_LICENSE: ${{ env.UNITY_LICENSE }}
 
+    - name: Fix permissions for build outputs
+      run: |
+        sudo chown -R "$USER":"$USER" build/Android
+        chmod -R u+rwX build/Android
+
     - name: Prepare Android artifacts
       run: |
         cd build/Android
